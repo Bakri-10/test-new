@@ -1,0 +1,172 @@
+name: 'Deploy Load Balancer'
+run-name: 'Load Balancer - ${{inputs.environment}} purpose: ${{inputs.purpose}} : ${{inputs.requesttype}}'
+on:
+  workflow_dispatch:
+    inputs:
+      requesttype:
+        type: choice
+        required: true
+        description: Request Type
+        options:
+            - Create (with New RG)
+            - Create (with Existing RG)
+            - Remove
+        default: "Create (with New RG)"
+      environment:
+        type: choice
+        required: true
+        description: Environment
+        options:
+          - DEV
+          - UAT
+          - QA
+          - PROD
+      location:
+        type: choice
+        required: true
+        description: Deployment Location
+        options:
+          - Select the location
+          - eastus2
+          - uksouth
+          - centralus
+          - ukwest
+      sku_name:
+        type: choice
+        required: false
+        description: SKU for Load Balancer
+        options:
+          - Standard
+          - Basic
+        default: "Standard"
+      purpose:
+        type: string
+        required: true
+        description: Purpose of the Load Balancer
+      purposeRG:
+        type: string
+        required: true
+        description: Resource Group Purpose.......... Hyphen designate an existing RG
+      subnetname:
+        type: string
+        required: true
+        description: Subnet name for Load Balancer.
+      private_ip_address:
+        type: string
+        required: false
+        description: Private IP address for Load Balancer frontend configuration.
+      nic_names:
+        description: "Comma-separated list of NIC names"
+        required: true
+        default: "nic1,nic2,nic3"
+      lb_probe_protocol: 
+        type: string
+        required: true
+        description: Probe protocol for the Load Balancer
+      lb_probe_port:
+        type: string
+        required: true
+        description: Probe port for the Load Balancer  
+      lb_rule_tcp_protocol:
+        type: string
+        required: true
+        description: tcp rule protocol for the Load Balancer
+      lb_rule_tcp_frontend_port:
+        type: string
+        required: true
+        description: tcp rule frontend port for the Load Balancer 
+      lb_rule_tcp_backend_port:
+        type: string
+        required: true
+        description: tcp rule backend port for the Load Balancer 
+      lb_rule_https_protocol:
+        type: string
+        required: true
+        description: Https rule protocol for the Load Balancer 
+      lb_rule_https_frontend_port:
+        type: string
+        required: true
+        description: Https frontend port for the Load Balancer   
+jobs:
+  resource_group:
+    if: (github.event.inputs.requesttype == 'Create (with New RG)')
+    name: 'Resource Group ${{inputs.purposeRG}}'
+    uses: ./.github/workflows/CreateResourceGroup.yml
+    secrets: inherit
+    with:
+      name:                 'resource-group'
+      subscription:         'SNow Input'
+      environment:          '${{inputs.environment}}' 
+      location:             '${{inputs.location}}' 
+      purpose:              '${{inputs.purposeRG}}'
+  
+  load_balancer_new_rg:
+    if: (github.event.inputs.requesttype == 'Create (with New RG)')
+    name: 'Load Balancer ${{inputs.purpose}}'
+    uses: ./.github/workflows/LBCreate.yml
+    needs: resource_group
+    secrets: inherit
+    with:
+      requesttype:                 '${{inputs.requesttype}}'
+      environment:                 '${{inputs.environment}}'
+      location:                    '${{inputs.location}}'
+      sku_name:                    '${{inputs.sku_name}}'
+      purpose:                     '${{inputs.purpose}}'
+      purposeRG:                   '${{inputs.purposeRG}}'
+      subnetname:                  '${{inputs.subnetname}}'
+      private_ip_address:          '${{inputs.private_ip_address}}'
+      nic_names:                   '${{inputs.nic_names}}'
+      lb_probe_protocol:           '${{inputs.lb_probe_protocol}}' 
+      lb_probe_port:               '${{inputs.lb_probe_port}}'
+      lb_rule_tcp_protocol:        '${{inputs.lb_rule_tcp_protocol}}'
+      lb_rule_tcp_frontend_port:   '${{inputs.lb_rule_tcp_frontend_port}}'
+      lb_rule_tcp_backend_port:    '${{inputs.lb_rule_tcp_backend_port}}'
+      lb_rule_https_protocol:      '${{inputs.lb_rule_https_protocol}}'
+      lb_rule_https_frontend_port: '${{inputs.lb_rule_https_frontend_port}}'
+            
+  
+  load_balancer_existing_rg:
+    if: (github.event.inputs.requesttype == 'Create (with Existing RG)')
+    name: 'Load Balancer ${{inputs.purpose}}'
+    uses: ./.github/workflows/LBCreate.yml
+    secrets: inherit
+    with:
+      requesttype:                 '${{inputs.requesttype}}'
+      environment:                 '${{inputs.environment}}'
+      location:                    '${{inputs.location}}'
+      sku_name:                    '${{inputs.sku_name}}'
+      purpose:                     '${{inputs.purpose}}'
+      purposeRG:                   '${{inputs.purposeRG}}'
+      subnetname:                  '${{inputs.subnetname}}'
+      private_ip_address:          '${{inputs.private_ip_address}}'
+      nic_names:                   '${{inputs.nic_names}}'
+      lb_probe_protocol:           '${{inputs.lb_probe_protocol}}' 
+      lb_probe_port:               '${{inputs.lb_probe_port}}'
+      lb_rule_tcp_protocol:        '${{inputs.lb_rule_tcp_protocol}}'
+      lb_rule_tcp_frontend_port:   '${{inputs.lb_rule_tcp_frontend_port}}'
+      lb_rule_tcp_backend_port:    '${{inputs.lb_rule_tcp_backend_port}}'
+      lb_rule_https_protocol:      '${{inputs.lb_rule_https_protocol}}'
+      lb_rule_https_frontend_port: '${{inputs.lb_rule_https_frontend_port}}'
+  
+  load_balancer_remove:
+    if: (github.event.inputs.requesttype == 'Remove')
+    name: 'Maintain Load Balancer ${{inputs.purpose}}'
+    uses: ./.github/workflows/LBCreate.yml
+    secrets: inherit
+    with:
+      requesttype:                 '${{inputs.requesttype}}'
+      environment:                 '${{inputs.environment}}'
+      location:                    '${{inputs.location}}'
+      sku_name:                    '${{inputs.sku_name}}'
+      purpose:                     '${{inputs.purpose}}'
+      purposeRG:                   '${{inputs.purposeRG}}'
+      subnetname:                  '${{inputs.subnetname}}'
+      private_ip_address:          '${{inputs.private_ip_address}}'
+      nic_names:                   '${{inputs.nic_names}}'
+      lb_probe_protocol:           '${{inputs.lb_probe_protocol}}' 
+      lb_probe_port:               '${{inputs.lb_probe_port}}'
+      lb_rule_tcp_protocol:        '${{inputs.lb_rule_tcp_protocol}}'
+      lb_rule_tcp_frontend_port:   '${{inputs.lb_rule_tcp_frontend_port}}'
+      lb_rule_tcp_backend_port:    '${{inputs.lb_rule_tcp_backend_port}}'
+      lb_rule_https_protocol:      '${{inputs.lb_rule_https_protocol}}'
+      lb_rule_https_frontend_port: '${{inputs.lb_rule_https_frontend_port}}'
