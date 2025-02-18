@@ -1,3 +1,10 @@
+terraform {
+  backend "azurerm" {
+    # Note: storage account configuration will be passed via backend-config
+    # in the terraform init command
+  }
+}
+
 // Database configuration
 provider "azurerm" {
   features {}
