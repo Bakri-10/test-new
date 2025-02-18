@@ -1,0 +1,91 @@
+name: 'Deploy SQL Failover Group'
+run-name: '${{ github.actor }} - Deployingto_${{ inputs.subscription }}_${{ inputs.environment }}'
+on:
+  workflow_dispatch:
+    inputs:
+      requestType:
+        type: choice
+        required: true
+        description: Request Type
+        options:
+          - Create
+          - Remove
+        default: "Create"
+      database_names:
+        type: string
+        required: true
+        description: Database names (comma-separated list) ["db1","db2"]
+      subscription:
+        type: string
+        required: true
+        description: Please enter your subscription Name
+      location:
+        type: choice
+        description: Pick the Location
+        options:
+          - eastus2
+          - centralus
+      secondary_location:
+        type: choice
+        description: Pick the Location for secondary
+        options:
+          - eastus2
+          - centralus
+        default: "centralus"
+      environment:
+        type: choice
+        description: Choose the environment
+        options:
+          - dev
+          - qa 
+          - UAT
+          - Prod
+      purpose:
+        type: string
+        description: purpose/sequence
+        required: true
+      purpose_rg:
+        type: string
+        required: true
+        description: Resource Group Purpose
+
+jobs:
+  sql-failover_create:
+    if: (github.event.inputs.requestType == 'Create')
+    name: 'Deploying - MSSQL Failover Group'
+    uses: ./.github/workflows/Createmssqlfailover.yml
+    secrets: 
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    with:
+      name: 'mssql-failover'
+      subscription: '${{ inputs.subscription }}'
+      database_names: '${{ inputs.database_names }}'
+      location: '${{ inputs.location }}'
+      secondary_location: '${{ inputs.secondary_location }}'
+      environment: '${{ inputs.environment }}'
+      purpose: '${{ inputs.purpose }}'
+      purpose_rg: '${{ inputs.purpose_rg }}'
+      requestType: '${{ inputs.requestType }}'
+
+  sql-failover_remove:
+    if: (github.event.inputs.requestType == 'Remove')
+    name: 'Removing - MSSQL Failover Group'
+    uses: ./.github/workflows/Createmssqlfailover.yml
+    secrets: 
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    with:
+      name: 'mssql-failover'
+      subscription: '${{ inputs.subscription }}'
+      database_names: '${{ inputs.database_names }}'
+      location: '${{ inputs.location }}'
+      secondary_location: '${{ inputs.secondary_location }}'
+      environment: '${{ inputs.environment }}'
+      purpose: '${{ inputs.purpose }}'
+      purpose_rg: '${{ inputs.purpose_rg }}'
+      requestType: '${{ inputs.requestType }}'
