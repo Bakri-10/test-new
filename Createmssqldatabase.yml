@@ -68,6 +68,14 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: latest
+
+    - name: 'Terraform Initialize'
+      run: terraform init -backend-config="resource_group_name=$BACKEND_RESOURCE_GROUP" -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-sqldb.tfstate" -input=false
+
     - id: envvars
       name: Set environment variables based on deployment environment
       run: |
@@ -82,10 +90,7 @@ jobs:
           echo "BACKEND_RESOURCE_GROUP=${{ secrets.DEV_BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
         fi
 
-    - name: 'Terraform Initialize - SQL Database'
-      run: terraform init -backend-config="resource_group_name=$BACKEND_RESOURCE_GROUP" -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-sqldb.tfstate" -input=false
-
-    - name: Terraform Plan
+    - name: 'Terraform Plan'
       if: ${{ inputs.requestType == 'Create' }}
       uses: hashicorp/terraform-github-actions@master
       with:
@@ -104,7 +109,7 @@ jobs:
         TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
         TF_VAR_BACKEND_RESOURCE_GROUP: '${{secrets.BACKEND_RESOURCE_GROUP}}'
 
-    - name: Terraform Plan Destroy
+    - name: 'Terraform Plan Destroy'
       if: ${{ inputs.requestType == 'Remove' }}
       uses: hashicorp/terraform-github-actions@master
       with:
