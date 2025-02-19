@@ -1,0 +1,168 @@
+name: 'Create MS SQL Server'
+run-name: ${{github.actor}}
+on:
+  workflow_call:
+    inputs:
+      name:
+        type: string
+        required: false
+      subscription:
+        type: string
+        required: true
+      location:
+        type: string
+        required: true
+      secondary_location:
+        type: string
+        required: true
+      environment:
+        type: string
+        required: true
+      purpose:
+        type: string
+        required: true
+      purposeRG:
+        type: string
+        required: false
+      subnetname:
+        type: string
+        required: true
+      dbserverversion:
+        type: string
+        required: false
+      tlsversion:
+        type: string
+        required: false
+    secrets:
+      ARM_CLIENT_ID:
+        required: true
+      ARM_CLIENT_SECRET:
+        required: true
+      ARM_SUBSCRIPTION_ID:
+        required: true
+      ARM_TENANT_ID:
+        required: true
+      BACKEND_STORAGE_ACCOUNT:
+          required: true
+      BACKEND_RESOURCE_GROUP:
+          required: true  
+env:
+  permissions:
+  contents: read
+jobs:
+  mssql-server-reusable-workflow:
+    name: 'Creating - MSSQL Server'
+    env:
+      ARM_CLIENT_ID: ${{secrets.ARM_CLIENT_ID}}
+      ARM_CLIENT_SECRET: ${{secrets.ARM_CLIENT_SECRET}}
+      ARM_TENANT_ID: ${{secrets.ARM_TENANT_ID}}
+      ARM_SUBSCRIPTION_ID: ${{secrets.ARM_SUBSCRIPTION_ID}}
+      ROOT_PATH: 'Azure/${{inputs.name}}'
+    runs-on: ubuntu-latest
+    environment: ${{inputs.environment}}
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+    - id: envvars
+      name: Set environment variables based on deployment environment
+      run: |
+        if [ "${{ inputs.environment }}" = "PROD" ]; then
+          echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.PROD_BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
+          echo "BACKEND_RESOURCE_GROUP=${{ secrets.PROD_BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
+        elif [ "${{ inputs.environment }}" = "UAT" ]; then
+          echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.UAT_BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
+          echo "BACKEND_RESOURCE_GROUP=${{ secrets.UAT_BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
+        else  # DEV
+          echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.DEV_BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
+          echo "BACKEND_RESOURCE_GROUP=${{ secrets.DEV_BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
+        fi
+    - name: 'Debug Environment Variables'
+      run: |
+        echo "BACKEND_STORAGE_ACCOUNT=$BACKEND_STORAGE_ACCOUNT"
+        echo "BACKEND_RESOURCE_GROUP=$BACKEND_RESOURCE_GROUP" 
+    - name: 'Terraform Initialize - SQL Server'
+      run: terraform init -backend-config="resource_group_name=$BACKEND_RESOURCE_GROUP" -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-sqlserver.tfstate" -input=false
+    - name: Terraform Initialize
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'init'
+        tf_actions_working_dir: ${{env.ROOT_PATH}}
+        tf_actions_comment: true
+      env:
+        TF_VAR_name: '${{inputs.name}}'
+        TF_VAR_location: ${{inputs.location}}
+        TF_VAR_secondary_location: ${{inputs.secondary_location}}
+        TF_VAR_environment: ${{inputs.environment}}
+        TF_VAR_purpose: ${{inputs.purpose}}
+        TF_VAR_purpose_rg: ${{inputs.purposeRG}}
+        TF_VAR_subnetname: ${{inputs.subnetname}}
+        TF_VAR_dbserverversion: ${{inputs.dbserverversion}}
+        TF_VAR_tlsversion: ${{inputs.tlsversion}}
+        TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
+        TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
+    - name: Terraform Plan
+      if: ${{ inputs.requestType == 'Create (with New RG)' || inputs.requestType == 'Create (with Existing RG)' }}
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'plan'
+        tf_actions_working_dir: ${{env.ROOT_PATH}}
+        tf_actions_comment: true
+      env:
+        TF_VAR_name: '${{inputs.name}}'
+        TF_VAR_location: ${{inputs.location}}
+        TF_VAR_secondary_location: ${{inputs.secondary_location}}
+        TF_VAR_environment: ${{inputs.environment}}
+        TF_VAR_purpose: ${{inputs.purpose}}
+        TF_VAR_purpose_rg: ${{inputs.purposeRG}}
+        TF_VAR_subnetname: ${{inputs.subnetname}}
+        TF_VAR_dbserverversion: ${{inputs.dbserverversion}}
+        TF_VAR_tlsversion: ${{inputs.tlsversion}}
+        TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
+        TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
+    - name: Terraform apply
+      if: ${{ inputs.requestType == 'Create (with New RG)' || inputs.requestType == 'Create (with Existing RG)' }}
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'apply'
+        tf_actions_working_dir: ${{env.ROOT_PATH}}
+        tf_actions_comment: true
+      env:
+        TF_VAR_name: '${{inputs.name}}'
+        TF_VAR_location: ${{inputs.location}}
+        TF_VAR_secondary_location: ${{inputs.secondary_location}}
+        TF_VAR_environment: ${{inputs.environment}}
+        TF_VAR_purpose: ${{inputs.purpose}}
+        TF_VAR_purpose_rg: ${{inputs.purposeRG}}
+        TF_VAR_subnetname: ${{inputs.subnetname}}
+        TF_VAR_dbserverversion: ${{inputs.dbserverversion}}
+        TF_VAR_tlsversion: ${{inputs.tlsversion}}
+        TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
+        TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
+    - name: Terraform destroy
+      if: ${{ inputs.requestType == 'Remove' }}
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'destroy'
+        tf_actions_working_dir: ${{env.ROOT_PATH}}
+        tf_actions_comment: true
+      env:
+        TF_VAR_location: ${{inputs.location}}
+        TF_VAR_secondary_location: ${{inputs.secondary_location}}
+        TF_VAR_environment: ${{inputs.environment}}
+        TF_VAR_purpose: ${{inputs.purpose}}
+        TF_VAR_purpose_rg: ${{inputs.purposeRG}}
+        TF_VAR_subnetname: ${{inputs.subnetname}}
+        TF_VAR_dbserverversion: ${{inputs.dbserverversion}}
+        TF_VAR_tlsversion: ${{inputs.tlsversion}}
+        TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
+        TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
