@@ -43,9 +43,9 @@ on:
       ARM_TENANT_ID:
         required: true
       BACKEND_STORAGE_ACCOUNT:
-          required: true
+        required: true
       BACKEND_RESOURCE_GROUP:
-          required: true  
+        required: true
 env:
   permissions:
   contents: read
@@ -78,14 +78,14 @@ jobs:
         elif [ "${{ inputs.environment }}" = "UAT" ]; then
           echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.UAT_BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
           echo "BACKEND_RESOURCE_GROUP=${{ secrets.UAT_BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
-        elif [ "${{ inputs.environment }}" = "QA" ]; then
-          echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.QA_BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
-          echo "BACKEND_RESOURCE_GROUP=${{ secrets.QA_BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
-        else  # DEV
+        else  
           echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.DEV_BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
           echo "BACKEND_RESOURCE_GROUP=${{ secrets.DEV_BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
         fi
-
+    - name: 'Debug Environment Variables'
+      run: |
+        echo "BACKEND_STORAGE_ACCOUNT=$BACKEND_STORAGE_ACCOUNT"
+        echo "BACKEND_RESOURCE_GROUP=$BACKEND_RESOURCE_GROUP" 
     - name: 'Terraform Initialize - SQL Server'
       run: terraform init -backend-config="resource_group_name=$BACKEND_RESOURCE_GROUP" -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-sqlserver.tfstate" -input=false
     - name: Terraform Initialize
@@ -105,8 +105,8 @@ jobs:
         TF_VAR_subnetname: ${{inputs.subnetname}}
         TF_VAR_dbserverversion: ${{inputs.dbserverversion}}
         TF_VAR_tlsversion: ${{inputs.tlsversion}}
-        TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-        TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
+        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
+        TF_VAR_BACKEND_RESOURCE_GROUP: '${{secrets.BACKEND_RESOURCE_GROUP}}'
     - name: Terraform Plan
       if: ${{ inputs.requestType == 'Create (with New RG)' || inputs.requestType == 'Create (with Existing RG)' }}
       uses: hashicorp/terraform-github-actions@master
@@ -125,8 +125,8 @@ jobs:
         TF_VAR_subnetname: ${{inputs.subnetname}}
         TF_VAR_dbserverversion: ${{inputs.dbserverversion}}
         TF_VAR_tlsversion: ${{inputs.tlsversion}}
-        TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-        TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
+        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
+        TF_VAR_BACKEND_RESOURCE_GROUP: '${{secrets.BACKEND_RESOURCE_GROUP}}'
     - name: Terraform apply
       if: ${{ inputs.requestType == 'Create (with New RG)' || inputs.requestType == 'Create (with Existing RG)' }}
       uses: hashicorp/terraform-github-actions@master
@@ -145,8 +145,8 @@ jobs:
         TF_VAR_subnetname: ${{inputs.subnetname}}
         TF_VAR_dbserverversion: ${{inputs.dbserverversion}}
         TF_VAR_tlsversion: ${{inputs.tlsversion}}
-        TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-        TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
+        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
+        TF_VAR_BACKEND_RESOURCE_GROUP: '${{secrets.BACKEND_RESOURCE_GROUP}}'
     - name: Terraform destroy
       if: ${{ inputs.requestType == 'Remove' }}
       uses: hashicorp/terraform-github-actions@master
@@ -164,5 +164,5 @@ jobs:
         TF_VAR_subnetname: ${{inputs.subnetname}}
         TF_VAR_dbserverversion: ${{inputs.dbserverversion}}
         TF_VAR_tlsversion: ${{inputs.tlsversion}}
-        TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-        TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
+        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
+        TF_VAR_BACKEND_RESOURCE_GROUP: '${{secrets.BACKEND_RESOURCE_GROUP}}'

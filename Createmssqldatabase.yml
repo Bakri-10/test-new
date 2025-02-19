@@ -43,9 +43,9 @@ on:
       ARM_TENANT_ID:
         required: true
       BACKEND_STORAGE_ACCOUNT:
-          required: true
+        required: true
       BACKEND_RESOURCE_GROUP:
-          required: true
+        required: true
 env:
   permissions:
   contents: read
@@ -77,10 +77,7 @@ jobs:
         elif [ "${{ inputs.environment }}" = "UAT" ]; then
           echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.UAT_BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
           echo "BACKEND_RESOURCE_GROUP=${{ secrets.UAT_BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
-        elif [ "${{ inputs.environment }}" = "QA" ]; then
-          echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.QA_BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
-          echo "BACKEND_RESOURCE_GROUP=${{ secrets.QA_BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
-        else  # DEV
+        else
           echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.DEV_BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
           echo "BACKEND_RESOURCE_GROUP=${{ secrets.DEV_BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
         fi
@@ -104,8 +101,8 @@ jobs:
         TF_VAR_skuname: ${{inputs.skuname}}
         TF_VAR_zoneredundancy: ${{inputs.zoneredundancy}}
         TF_VAR_dbcollation: '${{inputs.dbcollation}}'
-        TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-        TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
+        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
+        TF_VAR_BACKEND_RESOURCE_GROUP: '${{secrets.BACKEND_RESOURCE_GROUP}}'
 
     - name: Terraform Plan Destroy
       if: ${{ inputs.requestType == 'Remove' }}
@@ -124,8 +121,8 @@ jobs:
         TF_VAR_skuname: ${{inputs.skuname}}
         TF_VAR_zoneredundancy: ${{inputs.zoneredundancy}}
         TF_VAR_dbcollation: '${{inputs.dbcollation}}'
-        TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-        TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
+        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
+        TF_VAR_BACKEND_RESOURCE_GROUP: '${{secrets.BACKEND_RESOURCE_GROUP}}'
 
     - name: Terraform Apply
       if: ${{ inputs.requestType == 'Create' }}
@@ -144,5 +141,5 @@ jobs:
         TF_VAR_skuname: ${{inputs.skuname}}
         TF_VAR_zoneredundancy: ${{inputs.zoneredundancy}}
         TF_VAR_dbcollation: '${{inputs.dbcollation}}'
-        TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-        TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
+        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
+        TF_VAR_BACKEND_RESOURCE_GROUP: '${{secrets.BACKEND_RESOURCE_GROUP}}'

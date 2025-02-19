@@ -8,8 +8,8 @@ on:
         required: true
         description: Request Type
         options:
-          - Create
-          - Remove
+        - Create
+        - Remove
         default: "Create"
       subscription:
         type: string
@@ -19,16 +19,16 @@ on:
         type: choice
         description: Pick the Location
         options:
-          - eastus2
-          - centralus
+        - eastus2
+        - centralus
       environment:
         type: choice
         description: Choose the environment
         options:
-          - dev
-          - qa
-          - UAT
-          - Prod
+        - dev
+        - qa
+        - UAT
+        - Prod
       purpose:
         type: string
         description: purpose/sequence
@@ -41,15 +41,15 @@ on:
         type: choice
         description: Database SKU
         options:
-            - S0
-            - P2
-            - Basic
-            - ElasticPool
-            - BC_Gen5_2
-            - HS_Gen4_1
-            - GP_S_Gen5_2
-            - DW100c
-            - DS100
+        - S0
+        - P2
+        - Basic
+        - ElasticPool
+        - BC_Gen5_2
+        - HS_Gen4_1
+        - GP_S_Gen5_2
+        - DW100c
+        - DS100
       purposeRG:
         type: string
         required: true
@@ -57,8 +57,8 @@ on:
       zoneredundancy:
         type: choice
         options:
-            - "false"
-            - "true"
+        - "false"
+        - "true"
       dbcollation:
         type: string
         required: false
@@ -71,12 +71,12 @@ jobs:
     name: 'Deploying - MSSQL Database'
     uses: ./.github/workflows/Createmssqldatabase.yml
     secrets:
-          ARM_CLIENT_ID:            ${{secrets.AZURE_CLIENT_ID}}
-          ARM_CLIENT_SECRET:        ${{secrets.AZURE_CLIENT_SECRET}}
-          ARM_SUBSCRIPTION_ID:      ${{secrets.AZURE_SUBSCRIPTION_ID}}
-          ARM_TENANT_ID:            ${{secrets.AZURE_TENANT_ID}}
-          BACKEND_STORAGE_ACCOUNT:  ${{secrets.BACKEND_STORAGE_ACCOUNT}}
-          BACKEND_RESOURCE_GROUP:   ${{secrets.BACKEND_RESOURCE_GROUP}}
+      ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
+      ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
+      ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+      ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
     with:
       name: 'mssql-db'
       subscription: '${{inputs.subscription}}'
@@ -94,12 +94,12 @@ jobs:
     name: 'Removing - MSSQL Database'
     uses: ./.github/workflows/Createmssqldatabase.yml
     secrets:
-          ARM_CLIENT_ID:            ${{secrets.AZURE_CLIENT_ID}}
-          ARM_CLIENT_SECRET:        ${{secrets.AZURE_CLIENT_SECRET}}
-          ARM_SUBSCRIPTION_ID:      ${{secrets.AZURE_SUBSCRIPTION_ID}}
-          ARM_TENANT_ID:            ${{secrets.AZURE_TENANT_ID}}
-          BACKEND_STORAGE_ACCOUNT:  ${{secrets.BACKEND_STORAGE_ACCOUNT}}
-          BACKEND_RESOURCE_GROUP:   ${{secrets.BACKEND_RESOURCE_GROUP}}
+      ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
+      ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
+      ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+      ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
     with:
       name: 'mssql-db'
       subscription: '${{inputs.subscription}}'

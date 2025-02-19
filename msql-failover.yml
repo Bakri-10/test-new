@@ -8,8 +8,8 @@ on:
         required: true
         description: Request Type
         options:
-          - Create
-          - Remove
+        - Create
+        - Remove
         default: "Create"
       database_names:
         type: string
@@ -23,23 +23,23 @@ on:
         type: choice
         description: Pick the Location
         options:
-          - eastus2
-          - centralus
+        - eastus2
+        - centralus
       secondary_location:
         type: choice
         description: Pick the Location for secondary
         options:
-          - eastus2
-          - centralus
+        - eastus2
+        - centralus
         default: "centralus"
       environment:
         type: choice
         description: Choose the environment
         options:
-          - dev
-          - qa 
-          - UAT
-          - Prod
+        - dev
+        - qa
+        - UAT
+        - Prod
       purpose:
         type: string
         description: purpose/sequence
@@ -55,12 +55,12 @@ jobs:
     name: 'Deploying - MSSQL Failover Group'
     uses: ./.github/workflows/Createmssqlfailover.yml
     secrets:
-          ARM_CLIENT_ID:            ${{secrets.AZURE_CLIENT_ID}}
-          ARM_CLIENT_SECRET:        ${{secrets.AZURE_CLIENT_SECRET}}
-          ARM_SUBSCRIPTION_ID:      ${{secrets.AZURE_SUBSCRIPTION_ID}}
-          ARM_TENANT_ID:            ${{secrets.AZURE_TENANT_ID}}
-          BACKEND_STORAGE_ACCOUNT:  ${{secrets.BACKEND_STORAGE_ACCOUNT}}
-          BACKEND_RESOURCE_GROUP:   ${{secrets.BACKEND_RESOURCE_GROUP}}
+      ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
+      ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
+      ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+      ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
     with:
       name: 'mssql-failover'
       subscription: '${{ inputs.subscription }}'
@@ -77,12 +77,12 @@ jobs:
     name: 'Removing - MSSQL Failover Group'
     uses: ./.github/workflows/Createmssqlfailover.yml
     secrets:
-          ARM_CLIENT_ID:            ${{secrets.AZURE_CLIENT_ID}}
-          ARM_CLIENT_SECRET:        ${{secrets.AZURE_CLIENT_SECRET}}
-          ARM_SUBSCRIPTION_ID:      ${{secrets.AZURE_SUBSCRIPTION_ID}}
-          ARM_TENANT_ID:            ${{secrets.AZURE_TENANT_ID}}
-          BACKEND_STORAGE_ACCOUNT:  ${{secrets.BACKEND_STORAGE_ACCOUNT}}
-          BACKEND_RESOURCE_GROUP:   ${{secrets.BACKEND_RESOURCE_GROUP}}
+      ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
+      ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
+      ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+      ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
     with:
       name: 'mssql-failover'
       subscription: '${{ inputs.subscription }}'
