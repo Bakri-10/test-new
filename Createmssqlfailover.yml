@@ -70,7 +70,7 @@ jobs:
         terraform_version: latest
 
     - name: 'Terraform Initialize'
-      run: terraform init -backend-config="resource_group_name=$BACKEND_RESOURCE_GROUP" -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-sqlfailover.tfstate" -input=false
+      run: terraform init -backend-config="resource_group_name=${{ env.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ env.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-sqlserver.tfstate" -input=false
 
     - id: envvars
       name: Set environment variables based on deployment environment
