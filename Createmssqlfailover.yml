@@ -58,14 +58,24 @@ jobs:
       ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
       ROOT_PATH: 'Azure/${{ inputs.name }}'
-    runs-on: ubuntu-latest
+    runs-on:
+      group: aks-runners
     environment: ${{ inputs.environment }}
     defaults:
       run:
         shell: bash
+        working-directory: 'Azure/${{ inputs.name }}'
     steps:
-    - name: Checkout
+    - name: 'Checkout - MS SQL Failover (${{ inputs.purpose }})'
       uses: actions/checkout@v3
+    - name: 'Setup Node.js'
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20'
+    - name: 'Setup Terraform'
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest
 
     - id: envvars
       name: Set environment variables based on deployment environment

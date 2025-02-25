@@ -54,11 +54,9 @@ jobs:
       ARM_TENANT_ID: ${{secrets.ARM_TENANT_ID}}
       ARM_SUBSCRIPTION_ID: ${{secrets.ARM_SUBSCRIPTION_ID}}
       ROOT_PATH: 'Azure/${{inputs.name}}'
-      name: 'Deploying - MSSQL Database'
-    runs-on: 
+    runs-on:
       group: aks-runners
     environment: ${{inputs.environment}}
-    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
     defaults:
       run:
         shell: bash
@@ -69,11 +67,11 @@ jobs:
     - name: 'Setup Node.js'
       uses: actions/setup-node@v2
       with:
-        node-version: '20'  # Specify the required Node.js version  
+        node-version: '20'
     - name: 'Setup Terraform'
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: latest   
+        terraform_version: latest
 
     - id: envvars
       name: Set environment variables based on deployment environment

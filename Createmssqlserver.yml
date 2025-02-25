@@ -50,26 +50,32 @@ env:
   permissions:
   contents: read
 jobs:
-  mssql-server-reusable-workflow:
-    name: 'Creating - MSSQL Server'
+  mssql-server-deployment:
+    name: 'Deploying - MSSQL Server'
     env:
-      ARM_CLIENT_ID: ${{secrets.ARM_CLIENT_ID}}
-      ARM_CLIENT_SECRET: ${{secrets.ARM_CLIENT_SECRET}}
-      ARM_TENANT_ID: ${{secrets.ARM_TENANT_ID}}
-      ARM_SUBSCRIPTION_ID: ${{secrets.ARM_SUBSCRIPTION_ID}}
-      ROOT_PATH: 'Azure/${{inputs.name}}'
-    runs-on: ubuntu-latest
-    environment: ${{inputs.environment}}
-    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ROOT_PATH: 'Azure/${{ inputs.name }}'
+    runs-on:
+      group: aks-runners
+    environment: ${{ inputs.environment }}
     defaults:
       run:
         shell: bash
-
+        working-directory: 'Azure/${{ inputs.name }}'
     steps:
-    # Checkout the repository to the GitHub Actions runner
-    - name: Checkout
+    - name: 'Checkout - MS SQL Server (${{ inputs.purpose }})'
       uses: actions/checkout@v3
-
+    - name: 'Setup Node.js'
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20'
+    - name: 'Setup Terraform'
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest
     - id: envvars
       name: Set environment variables based on deployment environment
       run: |
