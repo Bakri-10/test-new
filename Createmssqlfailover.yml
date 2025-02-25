@@ -1,0 +1,122 @@
+name: 'Create MS SQL Failover Group'
+run-name: ${{ github.actor }}
+on:
+    workflow_call:
+      inputs:
+        name:
+          type: string
+          required: false
+        primary_server:
+          type: string
+          required: true
+        secondary_server:
+          type: string
+          required: true
+        database_names:
+          type: string
+          required: true
+        location:
+          type: string
+          required: true
+        secondary_location:
+          type: string
+          required: true
+        environment:
+          type: string
+          required: true
+        purpose:
+          type: string
+          required: true
+        purpose_rg:
+          type: string
+          required: true
+        requestType:
+          type: string
+          required: true
+      secrets:
+        ARM_CLIENT_ID:
+          required: true
+        ARM_CLIENT_SECRET:
+          required: true
+        ARM_SUBSCRIPTION_ID:
+          required: true
+        ARM_TENANT_ID:
+          required: true
+env:
+ permissions:
+ contents: read
+jobs:
+  mssql-failover-deployment:
+    name: 'Deploying - MSSQL Failover Group'
+    env:
+        ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+        ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+        ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+        ROOT_PATH: 'Azure/${{ inputs.name }}'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Terraform Initialize
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'init'
+        tf_actions_working_dir: ${{ env.ROOT_PATH }}
+
+    - name: Terraform Plan
+      if: ${{ inputs.requestType == 'Create' }}
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'plan'
+        tf_actions_working_dir: ${{ env.ROOT_PATH }}
+      env:
+          TF_VAR_primary_server: ${{inputs.primary_server}}
+          TF_VAR_secondary_server: ${{inputs.secondary_server}}
+          TF_VAR_database_names: ${{ inputs.database_names }}
+          TF_VAR_location: ${{ inputs.location }}
+          TF_VAR_secondary_location: ${{ inputs.secondary_location }}
+          TF_VAR_environment: ${{ inputs.environment }}
+          TF_VAR_purpose: ${{ inputs.purpose }}
+          TF_VAR_purpose_rg: ${{ inputs.purpose_rg }}
+
+    - name: Terraform Destroy
+      if: ${{ inputs.requestType == 'Remove' }}
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'destroy'
+        tf_actions_working_dir: ${{ env.ROOT_PATH }}
+      env:
+          TF_VAR_primary_server: ${{inputs.primary_server}}
+          TF_VAR_secondary_server: ${{inputs.secondary_server}}
+          TF_VAR_database_names: ${{ inputs.database_names }}
+          TF_VAR_location: ${{ inputs.location }}
+          TF_VAR_secondary_location: ${{ inputs.secondary_location }}
+          TF_VAR_environment: ${{ inputs.environment }}
+          TF_VAR_purpose: ${{ inputs.purpose }}
+          TF_VAR_purpose_rg: ${{ inputs.purpose_rg }}
+
+    - name: Terraform Apply
+      if: ${{ inputs.requestType == 'Create' }}
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'apply'
+        tf_actions_working_dir: ${{ env.ROOT_PATH }}
+      env:
+          TF_VAR_primary_server: ${{inputs.primary_server}}
+          TF_VAR_secondary_server: ${{inputs.secondary_server}}
+          TF_VAR_database_names: ${{ inputs.database_names }}
+          TF_VAR_location: ${{ inputs.location }}
+          TF_VAR_secondary_location: ${{ inputs.secondary_location }}
+          TF_VAR_environment: ${{ inputs.environment }}
+          TF_VAR_purpose: ${{ inputs.purpose }}
+          TF_VAR_purpose_rg: ${{ inputs.purpose_rg }} 
