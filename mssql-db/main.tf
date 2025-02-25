@@ -3,6 +3,12 @@ provider "azurerm" {
   features {}
 }
 
+terraform {
+  backend "azurerm" {
+    # Backend configuration will be provided via CLI arguments
+  }
+}
+
 data "azurerm_subscription" "current" {}
 
 locals {
