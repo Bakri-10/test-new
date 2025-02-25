@@ -8,9 +8,38 @@ on:
         required: true
         description: Request Type
         options:
-          - Create
-          - Remove
+        - Create
+        - Remove
         default: "Create"
+      environment:
+        type: choice
+        description: Choose the environment
+        options:
+        - dev
+        - qa
+        - UAT
+        - Prod
+      location:
+        type: choice
+        description: Pick the Location
+        options:
+        - eastus2
+        - centralus
+      secondary_location:
+        type: choice
+        description: Pick the Location for secondary
+        options:
+        - eastus2
+        - centralus
+        default: "centralus"
+      purpose:
+        type: string
+        description: purpose/sequence
+        required: true
+      purpose_rg:
+        type: string
+        required: true
+        description: Resource Group Purpose
       primary_server:
         type: string
         required: true
@@ -23,49 +52,22 @@ on:
         type: string
         required: true
         description: Database names (comma-separated list) ["db1","db2"]
-      location:
-        type: choice
-        description: Pick the Location
-        options:
-          - eastus2
-          - centralus
-      secondary_location:
-        type: choice
-        description: Pick the Location for secondary
-        options:
-          - eastus2
-          - centralus
-        default: "centralus"
-      environment:
-        type: choice
-        description: Choose the environment
-        options:
-          - dev
-          - qa 
-          - UAT
-          - Prod
-      purpose:
-        type: string
-        description: purpose/sequence
-        required: true
-      purpose_rg:
-        type: string
-        required: true
-        description: Resource Group Purpose
 
 jobs:
   sql-failover_create:
     if: (github.event.inputs.requestType == 'Create')
     name: 'Deploying - MSSQL Failover Group'
     uses: ./.github/workflows/Createmssqlfailover.yml
-    secrets: 
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    secrets:
+      ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
+      ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
+      ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+      ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
     with:
       name: 'mssql-failover'
-      primary_server: '${{inputs.secondary_server}}'
+      primary_server: '${{inputs.primary_server}}'
       secondary_server: '${{inputs.secondary_server}}'
       database_names: '${{ inputs.database_names }}'
       location: '${{ inputs.location }}'
@@ -79,14 +81,16 @@ jobs:
     if: (github.event.inputs.requestType == 'Remove')
     name: 'Removing - MSSQL Failover Group'
     uses: ./.github/workflows/Createmssqlfailover.yml
-    secrets: 
+    secrets:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
     with:
       name: 'mssql-failover'
-      primary_server: '${{inputs.secondary_server}}'
+      primary_server: '${{inputs.primary_server}}'
       secondary_server: '${{inputs.secondary_server}}'
       database_names: '${{ inputs.database_names }}'
       location: '${{ inputs.location }}'

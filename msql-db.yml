@@ -8,27 +8,31 @@ on:
         required: true
         description: Request Type
         options:
-          - Create
-          - Remove
+        - Create
+        - Remove
         default: "Create"
-      location:
-        type: choice
-        description: Pick the Location
-        options:
-          - eastus2
-          - centralus
       environment:
         type: choice
         description: Choose the environment
         options:
-          - dev
-          - qa
-          - UAT
-          - Prod
+        - dev
+        - qa
+        - UAT
+        - Prod
+      location:
+        type: choice
+        description: Pick the Location
+        options:
+        - eastus2
+        - centralus
       purpose:
         type: string
         description: purpose/sequence
         required: true
+      purposeRG:
+        type: string
+        required: true
+        description: Resource Group Purpose
       db_names:
         type: string
         required: true
@@ -37,24 +41,20 @@ on:
         type: choice
         description: Database SKU
         options:
-            - S0
-            - P2
-            - Basic
-            - ElasticPool
-            - BC_Gen5_2
-            - HS_Gen4_1
-            - GP_S_Gen5_2
-            - DW100c
-            - DS100
-      purposeRG:
-        type: string
-        required: true
-        description: Resource Group Purpose
+        - S0
+        - P2
+        - Basic
+        - ElasticPool
+        - BC_Gen5_2
+        - HS_Gen4_1
+        - GP_S_Gen5_2
+        - DW100c
+        - DS100
       zoneredundancy:
         type: choice
         options:
-            - "false"
-            - "true"
+        - "false"
+        - "true"
       dbcollation:
         type: string
         required: false
@@ -66,11 +66,13 @@ jobs:
     if: (github.event.inputs.requestType == 'Create')
     name: 'Deploying - MSSQL Database'
     uses: ./.github/workflows/Createmssqldatabase.yml
-    secrets: 
+    secrets:
       ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
       ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
       ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
       ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
     with:
       name: 'mssql-db'
       location: '${{inputs.location}}'
@@ -81,16 +83,19 @@ jobs:
       purposeRG: '${{inputs.purposeRG}}'
       zoneredundancy: '${{inputs.zoneredundancy}}'
       dbcollation: '${{inputs.dbcollation}}'
+      requestType: '${{inputs.requestType}}'
 
   sql-database_remove:
     if: (github.event.inputs.requestType == 'Remove')
     name: 'Removing - MSSQL Database'
     uses: ./.github/workflows/Createmssqldatabase.yml
-    secrets: 
+    secrets:
       ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
       ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
       ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
       ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
     with:
       name: 'mssql-db'
       location: '${{inputs.location}}'
@@ -101,3 +106,4 @@ jobs:
       purposeRG: '${{inputs.purposeRG}}'
       zoneredundancy: '${{inputs.zoneredundancy}}'
       dbcollation: '${{inputs.dbcollation}}'
+      requestType: '${{inputs.requestType}}'
