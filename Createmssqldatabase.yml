@@ -55,15 +55,25 @@ jobs:
       ARM_SUBSCRIPTION_ID: ${{secrets.ARM_SUBSCRIPTION_ID}}
       ROOT_PATH: 'Azure/${{inputs.name}}'
       name: 'Deploying - MSSQL Database'
-    runs-on: ubuntu-latest
+    runs-on: 
+      group: aks-runners
     environment: ${{inputs.environment}}
     # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
     defaults:
       run:
         shell: bash
+        working-directory: 'Azure/${{inputs.name}}'
     steps:
-    - name: Checkout
+    - name: 'Checkout - MS SQL Database (${{ inputs.purpose }})'
       uses: actions/checkout@v3
+    - name: 'Setup Node.js'
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20'  # Specify the required Node.js version  
+    - name: 'Setup Terraform'
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest   
 
     - id: envvars
       name: Set environment variables based on deployment environment
@@ -85,13 +95,7 @@ jobs:
         echo "BACKEND_RESOURCE_GROUP=$BACKEND_RESOURCE_GROUP"
 
     - name: Terraform Initialize
-      run: |
-        terraform init \
-          -backend-config="resource_group_name=$BACKEND_RESOURCE_GROUP" \
-          -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" \
-          -backend-config="container_name=terraform-state" \
-          -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate" \
-          -input=false
+      run: terraform init -backend-config="resource_group_name=$BACKEND_RESOURCE_GROUP" -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate" -input=false
       working-directory: ${{env.ROOT_PATH}}
 
     - name: Terraform Plan
