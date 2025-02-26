@@ -171,10 +171,17 @@ resource "azurerm_mssql_server_transparent_data_encryption" "tde" {
 //****************** Failover group Creation/Configuration ********************
 //****************** First create secondary database ************************
 
+// Add a new data source for secondary resource group
+data "azurerm_resource_group" "secondary_rg" {
+  for_each = { for inst in local.get_data : inst.unique_id => inst }
+  name     = join("-", [local.naming.bu, local.naming.environment, local.env_location.secondary_location_abbreviation, var.purpose_rg, "rg"])
+}
+
+// Update the secondary server to use the secondary resource group
 resource "azurerm_mssql_server" "mssqlserversecondary" {
   for_each = { for inst in local.get_data : inst.unique_id => inst }
   name                         = join("", [local.naming.bu, "-", local.naming.environment, "-", local.env_location.secondary_location_abbreviation, "-", local.purpose, "-sql-", local.sequence])
-  resource_group_name          = data.azurerm_resource_group.rg[each.key].name
+  resource_group_name          = data.azurerm_resource_group.secondary_rg[each.key].name  // Changed to use secondary RG
   location                     = var.secondary_location
   version                      = var.dbserverversion
   minimum_tls_version         = var.tlsversion

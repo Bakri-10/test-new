@@ -28,20 +28,20 @@ locals {
     locations_abbreviation = var.location_map[local.naming.locations]
   }
 }
-# data source to get the resource group
-data "azurerm_resource_group" "rg" {
+# Get Primary resource group name
+data "azurerm_resource_group" "primary_rg" {
   for_each = { for inst in local.get_data : inst.unique_id => inst }
   name     = join("-", [local.naming.bu, local.naming.environment, local.env_location.locations_abbreviation, var.purpose_rg, "rg"])
 }
 
 output "resource_group_name" {
-  value = data.azurerm_resource_group.rg
+  value = data.azurerm_resource_group.primary_rg
 }
 
 # data source to reference the SQL server
 data "azurerm_mssql_server" "sql_server" {
   name                = var.primary_server
-  resource_group_name = one(values(data.azurerm_resource_group.rg)).name
+  resource_group_name = one(values(data.azurerm_resource_group.primary_rg)).name
 }
 
 resource "azurerm_mssql_database" "sqldb" {

@@ -60,9 +60,9 @@ on:
         default: "1.2"
         description: Minimum TLS version
 jobs:
-  Deploying-Resource-Group:
+  Deploying-Primary-Resource-Group:
     if: (github.event.inputs.requestType == 'Create (with New RG)')
-    name: 'Deploying - resource-group'
+    name: 'Deploying - Primary Resource Group'
     uses: ./.github/workflows/CreateResourceGroup.yml
     secrets:
       ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
@@ -75,11 +75,28 @@ jobs:
       location: '${{inputs.location}}'
       environment: '${{inputs.environment}}'
       purpose: '${{inputs.purposeRG}}'
+
+  Deploying-Secondary-Resource-Group:
+    if: (github.event.inputs.requestType == 'Create (with New RG)')
+    name: 'Deploying - Secondary Resource Group'
+    uses: ./.github/workflows/CreateResourceGroup.yml
+    secrets:
+      ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
+      ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
+      ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+      ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+    with:
+      name: 'resource-group'
+      subscription: '${{inputs.subscription}}'
+      location: '${{inputs.secondary_location}}'
+      environment: '${{inputs.environment}}'
+      purpose: '${{inputs.purposeRG}}'
+
   mysql-server_new_rg:
     if: (github.event.inputs.requestType == 'Create (with New RG)')
     name: 'Deploying - MSSQL server'
     uses: ./.github/workflows/Createmssqlserver.yml
-    needs: Deploying-Resource-Group
+    needs: [ Deploying-Primary-Resource-Group, Deploying-Secondary-Resource-Group ]
     secrets:
       ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
       ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}

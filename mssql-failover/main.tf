@@ -31,22 +31,28 @@ locals {
   }
 }
 
-# Get Resource group name
-data "azurerm_resource_group" "rg" {
+# Get Primary resource group name
+data "azurerm_resource_group" "primary_rg" {
   for_each = { for inst in local.get_data : inst.unique_id => inst }
   name     = join("-", [local.naming.bu, local.naming.environment, local.env_location.locations_abbreviation, var.purpose_rg, "rg"])
+}
+
+# Get Secondary resource group name
+data "azurerm_resource_group" "secondary_rg" {
+  for_each = { for inst in local.get_data : inst.unique_id => inst }
+  name     = join("-", [local.naming.bu, local.naming.environment, local.env_location.secondary_location_abbreviation, var.purpose_rg, "rg"])
 }
 
 # Get Primary server details
 data "azurerm_mssql_server" "primary_server" {
   name                = var.primary_server
-  resource_group_name = one(values(data.azurerm_resource_group.rg)).name
+  resource_group_name = one(values(data.azurerm_resource_group.primary_rg)).name
 }
 
 # Get secondary server details
 data "azurerm_mssql_server" "secondary_server" {
   name                = var.secondary_server
-  resource_group_name = one(values(data.azurerm_resource_group.rg)).name
+  resource_group_name = one(values(data.azurerm_resource_group.secondary_rg)).name
 }
 
 # Get database details
