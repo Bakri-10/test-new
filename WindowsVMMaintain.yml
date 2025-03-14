@@ -28,7 +28,7 @@ on:
         required: false
       diskStorageAccountType:
         type: string
-        required: false        
+        required: false
     secrets:
       ARM_CLIENT_ID:
         required: true
@@ -49,211 +49,216 @@ jobs:
       ARM_CLIENT_SECRET: ${{secrets.ARM_CLIENT_SECRET}}
       ARM_TENANT_ID: ${{secrets.ARM_TENANT_ID}}
       ARM_SUBSCRIPTION_ID: ${{secrets.ARM_SUBSCRIPTION_ID}}
-      ROOT_PATH:            'Azure/windows-vm/update'
+      ROOT_PATH: 'Azure/windows-vm/update'
     runs-on: ubuntu-latest
     environment: ${{inputs.environment}}
     defaults:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v3
-      - name: Az login
-        uses: azure/login@v2
-        with: 
-            creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
-            enable-AzPSSession: true
-      - name: PSH Stop VM
-        id: psh_stop_vm
-        uses: azure/powershell@v2
-        with:
-          azPSVersion: latest
-          inlineScript: |
-            $subscriptionName = (Set-AzContext -Subscription ${{ secrets.ARM_SUBSCRIPTION_ID }}).Subscription.Name
-            $bu = $subscriptionName.split("-")[1]
-            $env = $subscriptionName.split("-")[2]
-            if ("${{inputs.location}}" -eq "eastus2") {
-              $region = "eus2"
-              $r_gad = "use"
-              $geo = "US"
-            }
-            elseif ("${{inputs.location}}" -eq "centralus") {
-              $region = "cus"
-              $r_gad = "cus"
-              $geo = "US"
-            }
-            elseif ("${{inputs.location}}" -eq "uksouth") {
-              $region = "uks"
-              $r_gad = "uks"
-              $geo = "UK"
-            }
-            else{
-              $region = "ukw"
-              $r_gad = "ukw"
-              $geo = "UK"
-            }
-            if ($env -eq 'DEV') {
-              $e_gad = 'DV'
-            } 
-            elseif ($env -eq 'UAT'){
-              $e_gad = 'UT'
-            }
-            elseif ($env -eq 'QA'){
-              $e_gad = 'QA'
-            }
-            else {
-              $e_gad = 'PR'
-            }
-            $purpose = "${{inputs.purpose}}"
+    - uses: actions/checkout@v3
+    - name: Az login
+      uses: azure/login@v2
+      with:
+        creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
+        enable-AzPSSession: true
+    - name: PSH Stop VM
+      id: psh_stop_vm
+      uses: azure/powershell@v2
+      with:
+        azPSVersion: latest
+        inlineScript: |
+          $subscriptionName = (Set-AzContext -Subscription ${{ secrets.ARM_SUBSCRIPTION_ID }}).Subscription.Name
+          $bu = $subscriptionName.split("-")[1]
+          $env = $subscriptionName.split("-")[2]
+          if ("${{inputs.location}}" -eq "eastus2") {
+            $region = "eus2"
+            $r_gad = "use"
+            $geo = "US"
+          }
+          elseif ("${{inputs.location}}" -eq "centralus") {
+            $region = "cus"
+            $r_gad = "cus"
+            $geo = "US"
+          }
+          elseif ("${{inputs.location}}" -eq "uksouth") {
+            $region = "uks"
+            $r_gad = "uks"
+            $geo = "UK"
+          }
+          else{
+            $region = "ukw"
+            $r_gad = "ukw"
+            $geo = "UK"
+          }
+          if ($env -eq 'DEV') {
+            $e_gad = 'DV'
+          } 
+          elseif ($env -eq 'UAT'){
+            $e_gad = 'UT'
+          }
+          elseif ($env -eq 'QA'){
+            $e_gad = 'QA'
+          }
+          else {
+            $e_gad = 'PR'
+          }
+          $purpose = "${{inputs.purpose}}"
 
-            if ( $purpose.Contains("-") ) {
-              $vmName = $purpose
-              $vmRole = ($purpose -split "-")[1]
-            }
-            elseif ( $purpose.Contains("/") ) {
-              $vmRole = ($purpose -split "/")[0]
-              $vmSequence = ($purpose -split "/")[1]
-              $vmName = "AZ" + $r_gad + "-" + $vmRole + $e_gad + $vmSequence
-            }
-            else {
-              $vmRole = $purpose
-              $vmSequence = "001"
-              $vmName = "AZ" + $r_gad + "-" + $vmRole + $e_gad + $vmSequence
-            }
+          if ( $purpose.Contains("-") ) {
+            $vmName = $purpose
+            $vmRole = ($purpose -split "-")[1]
+          }
+          elseif ( $purpose.Contains("/") ) {
+            $vmRole = ($purpose -split "/")[0]
+            $vmSequence = ($purpose -split "/")[1]
+            $vmName = "AZ" + $r_gad + "-" + $vmRole + $e_gad + $vmSequence
+          }
+          else {
+            $vmRole = $purpose
+            $vmSequence = "001"
+            $vmName = "AZ" + $r_gad + "-" + $vmRole + $e_gad + $vmSequence
+          }
 
-            $purposeRG = "${{inputs.purposeRG}}"
-            if ( $purposeRG.Contains("-") ) {
-              $rgName = $purposeRG
-            }
-            else {
-              $rgName = $bu + "-" + $env + "-" + $region + "-" + $purposeRG + "-rg"
-            }
+          $purposeRG = "${{inputs.purposeRG}}"
+          if ( $purposeRG.Contains("-") ) {
+            $rgName = $purposeRG
+          }
+          else {
+            $rgName = $bu + "-" + $env + "-" + $region + "-" + $purposeRG + "-rg"
+          }
 
-            Write-Host "==> VM Info"
-            Write-Host $rgName
-            Write-Host $vmName
-            Stop-AzVM -ResourceGroupName $rgName -Name $vmName -Force -NoWait  
-            Write-Output "Stopping VM. Waiting 3 minutes..."
-            Start-Sleep -s 180
-      - name: 'Terraform Initialize - Windows VM (${{ inputs.purpose }})'
-        uses: hashicorp/terraform-github-actions@master
-        with:
-          tf_actions_version:     latest
-          tf_actions_subcommand:  'init'
-          tf_actions_working_dir: ${{env.ROOT_PATH}}
-          tf_actions_comment:     true
-        env:
-          TF_VAR_request_type:              '${{inputs.requestType}}'
-          TF_VAR_location:                  '${{inputs.location}}'
-          TF_VAR_vm_size:                   '${{inputs.vmsize}}'
-          TF_VAR_purpose:                   '${{inputs.purpose}}'
-          TF_VAR_purpose_rg:                 '${{inputs.purposeRG}}'
-          # TF_VAR_project_ou:                '${{inputs.projectou}}'
-          # TF_VAR_subnetname_wvm:            '${{inputs.subnetNameWVM}}'
-          TF_VAR_disk_size_gb:                '${{inputs.diskSizeGB}}'
-          TF_VAR_disk_storage_account_type:   '${{inputs.diskStorageAccountType}}'
-      - name: 'Terraform Plan - Wiindows VM (${{ inputs.purpose }})'
-        uses: hashicorp/terraform-github-actions@master
-        with:
-          tf_actions_version:     latest
-          tf_actions_subcommand:  'plan'
-          tf_actions_working_dir: ${{env.ROOT_PATH}}
-          tf_actions_comment:     true
-        env:
-          TF_VAR_request_type:              '${{inputs.requestType}}'
-          TF_VAR_location:                  '${{inputs.location}}'
-          TF_VAR_vm_size:                   '${{inputs.vmsize}}'
-          TF_VAR_purpose:                   '${{inputs.purpose}}'
-          TF_VAR_purpose_rg:                 '${{inputs.purposeRG}}'
-          # TF_VAR_project_ou:                '${{inputs.projectou}}'
-          # TF_VAR_subnetname_wvm:            '${{inputs.subnetNameWVM}}'
-          TF_VAR_disk_size_gb:              '${{inputs.diskSizeGB}}'
-          TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
-      - name: 'Terraform Apply - Windows VM (${{ inputs.purpose }})'
-        uses: hashicorp/terraform-github-actions@master
-        with:
-          tf_actions_version:     latest
-          tf_actions_subcommand:  'apply'
-          tf_actions_working_dir: ${{env.ROOT_PATH}}
-          tf_actions_comment:     true
-        env:
-          TF_VAR_request_type:              '${{inputs.requestType}}'
-          TF_VAR_location:                  '${{inputs.location}}'
-          TF_VAR_vm_size:                   '${{inputs.vmsize}}'
-          TF_VAR_purpose:                   '${{inputs.purpose}}'
-          TF_VAR_purpose_rg:                 '${{inputs.purposeRG}}'
-          # TF_VAR_project_ou:                '${{inputs.projectou}}'
-          # TF_VAR_subnetname_wvm:            '${{inputs.subnetNameWVM}}'
-          TF_VAR_disk_size_gb:              '${{inputs.diskSizeGB}}'
-          TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
-      - name: PSH Start VM
-        id: psh_start_vm
-        uses: azure/powershell@v2
-        with:
-          azPSVersion: latest
-          inlineScript: |
-              $subscriptionName = (Set-AzContext -Subscription ${{ secrets.ARM_SUBSCRIPTION_ID }}).Subscription.Name
-              $bu = $subscriptionName.split("-")[1]
-              $env = $subscriptionName.split("-")[2]
-              if ("${{inputs.location}}" -eq "eastus2") {
-                $region = "eus2"
-                $r_gad = "use"
-                $geo = "US"
-              }
-              elseif ("${{inputs.location}}" -eq "centralus") {
-                $region = "cus"
-                $r_gad = "cus"
-                $geo = "US"
-              }
-              elseif ("${{inputs.location}}" -eq "uksouth") {
-                $region = "uks"
-                $r_gad = "uks"
-                $geo = "UK"
-              }
-              else{
-                $region = "ukw"
-                $r_gad = "ukw"
-                $geo = "UK"
-              }
-              if ($env -eq 'DEV') {
-                $e_gad = 'DV'
-              } 
-              elseif ($env -eq 'UAT'){
-                $e_gad = 'UT'
-              }
-              elseif ($env -eq 'QA'){
-                $e_gad = 'QA'
-              }
-              else {
-                $e_gad = 'PR'
-              }
-              $purpose = "${{inputs.purpose}}"
-  
-              if ( $purpose.Contains("-") ) {
-                $vmName = $purpose
-                $vmRole = ($purpose -split "-")[1]
-              }
-              elseif ( $purpose.Contains("/") ) {
-                $vmRole = ($purpose -split "/")[0]
-                $vmSequence = ($purpose -split "/")[1]
-                $vmName = "AZ" + $r_gad + "-" + $vmRole + $e_gad + $vmSequence
-              }
-              else {
-                $vmRole = $purpose
-                $vmSequence = "001"
-                $vmName = "AZ" + $r_gad + "-" + $vmRole + $e_gad + $vmSequence
-              }
-  
-              $purposeRG = "${{inputs.purposeRG}}"
-              if ( $purposeRG.Contains("-") ) {
-                $rgName = $purposeRG
-              }
-              else {
-                $rgName = $bu + "-" + $env + "-" + $region + "-" + $purposeRG + "-rg"
-              }
-  
-              Write-Host "==> VM Info"
-              Write-Host $rgName
-              Write-Host $vmName
-              Start-AzVM -ResourceGroupName $rgName -Name $vmName -NoWait  
-              Write-Output "Starting VM. Waiting 3 minutes..."
-              Start-Sleep -s 180          
+          Write-Host "==> VM Info"
+          Write-Host $rgName
+          Write-Host $vmName
+          Stop-AzVM -ResourceGroupName $rgName -Name $vmName -Force -NoWait  
+          Write-Output "Stopping VM. Waiting 3 minutes..."
+          Start-Sleep -s 180
+    - name: 'Terraform Initialize - Windows VM (${{ inputs.purpose }})'
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'init'
+        tf_actions_working_dir: ${{env.ROOT_PATH}}
+        tf_actions_comment: true
+      env:
+        TF_VAR_request_type: '${{inputs.requestType}}'
+        TF_VAR_location: '${{inputs.location}}'
+        TF_VAR_vm_size: '${{inputs.vmsize}}'
+        TF_VAR_purpose: '${{inputs.purpose}}'
+        TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
+        # TF_VAR_project_ou:                '${{inputs.projectou}}'
+        # TF_VAR_subnetname_wvm:            '${{inputs.subnetNameWVM}}'
+        TF_VAR_disk_size_gb: '${{inputs.diskSizeGB}}'
+        TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
+    - name: 'Terraform Plan - Windows VM (${{ inputs.purpose }})'
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'plan'
+        tf_actions_working_dir: ${{env.ROOT_PATH}}
+        tf_actions_comment: true
+        tf_actions_cli_options: >-
+          ${{ inputs.requestType == 'Update VM SKU' && '-target="azurerm_windows_virtual_machine.main"' ||
+              inputs.requestType == 'Update (Data Disk)' && '-target="module.managed_data_disk"' ||
+              inputs.requestType == 'Update (OS Disk)' && '-target="azurerm_windows_virtual_machine.main"' || '' }}
+      env:
+        TF_VAR_request_type: '${{inputs.requestType}}'
+        TF_VAR_location: '${{inputs.location}}'
+        TF_VAR_vm_size: '${{inputs.vmsize}}'
+        TF_VAR_purpose: '${{inputs.purpose}}'
+        TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
+        TF_VAR_disk_size_gb: '${{inputs.diskSizeGB}}'
+        TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
+    - name: 'Terraform Apply - Windows VM (${{ inputs.purpose }})'
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'apply'
+        tf_actions_working_dir: ${{env.ROOT_PATH}}
+        tf_actions_comment: true
+        tf_actions_cli_options: >-
+          ${{ inputs.requestType == 'Update VM SKU' && '-target="azurerm_windows_virtual_machine.main"' ||
+              inputs.requestType == 'Update (Data Disk)' && '-target="module.managed_data_disk"' ||
+              inputs.requestType == 'Update (OS Disk)' && '-target="azurerm_windows_virtual_machine.main"' || '' }}
+      env:
+        TF_VAR_request_type: '${{inputs.requestType}}'
+        TF_VAR_location: '${{inputs.location}}'
+        TF_VAR_vm_size: '${{inputs.vmsize}}'
+        TF_VAR_purpose: '${{inputs.purpose}}'
+        TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
+        TF_VAR_disk_size_gb: '${{inputs.diskSizeGB}}'
+        TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
+    - name: PSH Start VM
+      id: psh_start_vm
+      uses: azure/powershell@v2
+      with:
+        azPSVersion: latest
+        inlineScript: |
+          $subscriptionName = (Set-AzContext -Subscription ${{ secrets.ARM_SUBSCRIPTION_ID }}).Subscription.Name
+          $bu = $subscriptionName.split("-")[1]
+          $env = $subscriptionName.split("-")[2]
+          if ("${{inputs.location}}" -eq "eastus2") {
+            $region = "eus2"
+            $r_gad = "use"
+            $geo = "US"
+          }
+          elseif ("${{inputs.location}}" -eq "centralus") {
+            $region = "cus"
+            $r_gad = "cus"
+            $geo = "US"
+          }
+          elseif ("${{inputs.location}}" -eq "uksouth") {
+            $region = "uks"
+            $r_gad = "uks"
+            $geo = "UK"
+          }
+          else{
+            $region = "ukw"
+            $r_gad = "ukw"
+            $geo = "UK"
+          }
+          if ($env -eq 'DEV') {
+            $e_gad = 'DV'
+          } 
+          elseif ($env -eq 'UAT'){
+            $e_gad = 'UT'
+          }
+          elseif ($env -eq 'QA'){
+            $e_gad = 'QA'
+          }
+          else {
+            $e_gad = 'PR'
+          }
+          $purpose = "${{inputs.purpose}}"
+
+          if ( $purpose.Contains("-") ) {
+            $vmName = $purpose
+            $vmRole = ($purpose -split "-")[1]
+          }
+          elseif ( $purpose.Contains("/") ) {
+            $vmRole = ($purpose -split "/")[0]
+            $vmSequence = ($purpose -split "/")[1]
+            $vmName = "AZ" + $r_gad + "-" + $vmRole + $e_gad + $vmSequence
+          }
+          else {
+            $vmRole = $purpose
+            $vmSequence = "001"
+            $vmName = "AZ" + $r_gad + "-" + $vmRole + $e_gad + $vmSequence
+          }
+
+          $purposeRG = "${{inputs.purposeRG}}"
+          if ( $purposeRG.Contains("-") ) {
+            $rgName = $purposeRG
+          }
+          else {
+            $rgName = $bu + "-" + $env + "-" + $region + "-" + $purposeRG + "-rg"
+          }
+
+          Write-Host "==> VM Info"
+          Write-Host $rgName
+          Write-Host $vmName
+          Start-AzVM -ResourceGroupName $rgName -Name $vmName -NoWait  
+          Write-Output "Starting VM. Waiting 3 minutes..."
+          Start-Sleep -s 180
+    # ... other maintenance tasks ...
