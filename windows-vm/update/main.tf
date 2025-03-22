@@ -103,6 +103,7 @@ resource "azapi_resource_action" "vm_start" {
   type        = "Microsoft.Compute/virtualMachines@2023-09-01"
   resource_id = data.azurerm_virtual_machine.maintaining.id
   action      = "start"
+  method      = "POST"
   body        = jsonencode({})
 }
 
@@ -111,6 +112,7 @@ resource "azapi_resource_action" "vm_stop" {
   type        = "Microsoft.Compute/virtualMachines@2023-09-01"
   resource_id = data.azurerm_virtual_machine.maintaining.id
   action      = "deallocate"
+  method      = "POST"
   body        = jsonencode({})
 }
 
@@ -120,6 +122,7 @@ resource "azapi_resource_action" "vm_restart_stop" {
   type        = "Microsoft.Compute/virtualMachines@2023-09-01"
   resource_id = data.azurerm_virtual_machine.maintaining.id
   action      = "deallocate"
+  method      = "POST"
   body        = jsonencode({})
 }
 
@@ -134,6 +137,7 @@ resource "azapi_resource_action" "vm_restart_start" {
   type        = "Microsoft.Compute/virtualMachines@2023-09-01"
   resource_id = data.azurerm_virtual_machine.maintaining.id
   action      = "start"
+  method      = "POST"
   body        = jsonencode({})
   depends_on  = [time_sleep.wait_30_seconds]
 }
