@@ -114,12 +114,28 @@ resource "azapi_resource_action" "vm_stop" {
   body        = jsonencode({})
 }
 
-resource "azapi_resource_action" "vm_restart" {
+# Restart is implemented as a sequence of stop and start with a time delay
+resource "azapi_resource_action" "vm_restart_stop" {
   count       = local.count_vm_restart
   type        = "Microsoft.Compute/virtualMachines@2023-09-01"
   resource_id = data.azurerm_virtual_machine.maintaining.id
-  action      = "restart"
+  action      = "deallocate"
   body        = jsonencode({})
+}
+
+resource "time_sleep" "wait_30_seconds" {
+  count           = local.count_vm_restart
+  depends_on      = [azapi_resource_action.vm_restart_stop]
+  create_duration = "30s"
+}
+
+resource "azapi_resource_action" "vm_restart_start" {
+  count       = local.count_vm_restart
+  type        = "Microsoft.Compute/virtualMachines@2023-09-01"
+  resource_id = data.azurerm_virtual_machine.maintaining.id
+  action      = "start"
+  body        = jsonencode({})
+  depends_on  = [time_sleep.wait_30_seconds]
 }
 
 # Disk Updates
