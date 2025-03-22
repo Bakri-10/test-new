@@ -105,9 +105,22 @@ variable "valid_os_storage_account_types" {
 #
 variable "request_type" {
   type        = string
-  description = "request_type"
-  default     = "Create (with New RG)"
- }
+  description = "Request type for VM operations"
+  validation {
+    condition     = contains([
+      "Create (with New RG)",
+      "Create (with Existing RG)",
+      "Update (Data Disk)",
+      "Update (OS Disk)",
+      "Update VM SKU",
+      "Remove (Destroy VM)",
+      "Start VM",
+      "Stop VM",
+      "Restart VM"
+    ], var.request_type)
+    error_message = "Invalid request type. Must be one of: Create (with New RG), Create (with Existing RG), Update (Data Disk), Update (OS Disk), Update VM SKU, Remove (Destroy VM), Start VM, Stop VM, Restart VM"
+  }
+}
 variable "location" {
   type        = string
   description = "(Required) The location (region) where the resource is to be deployed. eastus2 and uksouth are the primary locations. centralus and ukwest are for disaster recovery."

@@ -51,6 +51,9 @@ locals {
   count_os_storage_account_type             = ( var.request_type == "Update (OS Disk)" && 
                                                 var.disk_storage_account_type != " " ? 1 : 0)
   count_vm_size                             = lower(var.vm_size) != "same" ? 1 : 0
+  count_vm_start                            = var.request_type == "Start VM" ? 1 : 0
+  count_vm_stop                             = var.request_type == "Stop VM" ? 1 : 0
+  count_vm_restart                          = var.request_type == "Restart VM" ? 1 : 0
   dd_name                                   = join("-",[local.vm_name, "data_disk", "0"])
   feature_vm_stop_start                     = 0 # 0 = not run, 1 - run
   osd_name                                  = join("-", [local.vm_name, "disk-os"])
@@ -94,6 +97,32 @@ data "azurerm_virtual_machine" "maintaining" {
   resource_group_name = local.rg_name
  }
 #
+# VM Operations
+resource "azapi_resource_action" "vm_start" {
+  count       = local.count_vm_start
+  type        = "Microsoft.Compute/virtualMachines@2023-09-01"
+  resource_id = data.azurerm_virtual_machine.maintaining.id
+  action      = "start"
+  body        = jsonencode({})
+}
+
+resource "azapi_resource_action" "vm_stop" {
+  count       = local.count_vm_stop
+  type        = "Microsoft.Compute/virtualMachines@2023-09-01"
+  resource_id = data.azurerm_virtual_machine.maintaining.id
+  action      = "deallocate"
+  body        = jsonencode({})
+}
+
+resource "azapi_resource_action" "vm_restart" {
+  count       = local.count_vm_restart
+  type        = "Microsoft.Compute/virtualMachines@2023-09-01"
+  resource_id = data.azurerm_virtual_machine.maintaining.id
+  action      = "restart"
+  body        = jsonencode({})
+}
+
+# Disk Updates
 resource "azapi_update_resource" "dd_size_gb" {
   count = local.count_dd_size_gb
   type = "Microsoft.Compute/disks@2023-10-02"
