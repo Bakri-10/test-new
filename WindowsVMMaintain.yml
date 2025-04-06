@@ -56,7 +56,7 @@ jobs:
         shell: bash
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Az login
       uses: azure/login@v2
       with:
@@ -92,7 +92,9 @@ jobs:
               inputs.requestType == 'Update (OS Disk)' && '-target="azapi_update_resource.vm_os_storage_account_type"' ||
               inputs.requestType == 'Start VM' && '-target="azapi_resource_action.vm_start[0]"' ||
               inputs.requestType == 'Stop VM' && '-target="azapi_resource_action.vm_stop[0]"' ||
-              inputs.requestType == 'Restart VM' && '-target="azapi_resource_action.vm_restart_stop[0]" -target="time_sleep.wait_30_seconds[0]" -target="azapi_resource_action.vm_restart_start[0]"' || '' }}
+              inputs.requestType == 'Restart VM' && '-target="azapi_resource_action.vm_restart_stop[0]" -target="time_sleep.wait_30_seconds[0]" -target="azapi_resource_action.vm_restart_start[0]"' ||
+              inputs.requestType == 'Backup VM' && '-target="azapi_resource_action.vm_backup[0]"' ||
+              inputs.requestType == 'Restore VM' && '-target="azapi_resource_action.vm_restore[0]"' || '' }}
       env:
         TF_VAR_request_type: '${{inputs.requestType}}'
         TF_VAR_location: '${{inputs.location}}'
@@ -115,7 +117,9 @@ jobs:
               inputs.requestType == 'Update (OS Disk)' && '-target="azapi_update_resource.vm_os_storage_account_type"' ||
               inputs.requestType == 'Start VM' && '-target="azapi_resource_action.vm_start[0]"' ||
               inputs.requestType == 'Stop VM' && '-target="azapi_resource_action.vm_stop[0]"' ||
-              inputs.requestType == 'Restart VM' && '-target="azapi_resource_action.vm_restart_stop[0]" -target="time_sleep.wait_30_seconds[0]" -target="azapi_resource_action.vm_restart_start[0]"' || '' }}
+              inputs.requestType == 'Restart VM' && '-target="azapi_resource_action.vm_restart_stop[0]" -target="time_sleep.wait_30_seconds[0]" -target="azapi_resource_action.vm_restart_start[0]"' ||
+              inputs.requestType == 'Backup VM' && '-target="azapi_resource_action.vm_backup[0]"' ||
+              inputs.requestType == 'Restore VM' && '-target="azapi_resource_action.vm_restore[0]"' || '' }}
       env:
         TF_VAR_request_type: '${{inputs.requestType}}'
         TF_VAR_location: '${{inputs.location}}'
@@ -123,4 +127,4 @@ jobs:
         TF_VAR_purpose: '${{inputs.purpose}}'
         TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
         TF_VAR_disk_size_gb: '${{inputs.diskSizeGB}}'
-        TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}' 
+        TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'

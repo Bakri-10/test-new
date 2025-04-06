@@ -54,6 +54,8 @@ locals {
   count_vm_start                            = var.request_type == "Start VM" ? 1 : 0
   count_vm_stop                             = var.request_type == "Stop VM" ? 1 : 0
   count_vm_restart                          = var.request_type == "Restart VM" ? 1 : 0
+  count_vm_backup                           = var.request_type == "Backup VM" ? 1 : 0
+  count_vm_restore                          = var.request_type == "Restore VM" ? 1 : 0
   dd_name                                   = join("-",[local.vm_name, "data_disk", "0"])
   feature_vm_stop_start                     = 0 # 0 = not run, 1 - run
   osd_name                                  = join("-", [local.vm_name, "disk-os"])
@@ -136,6 +138,32 @@ resource "azapi_resource_action" "vm_restart_start" {
   action      = "start"
   body        = jsonencode({})
   depends_on  = [time_sleep.wait_30_seconds]
+}
+
+# Backup and Restore Operations
+resource "azapi_resource_action" "vm_backup" {
+  count       = local.count_vm_backup
+  type        = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems@2023-04-01"
+  resource_id = "${data.azurerm_virtual_machine.maintaining.id}/providers/Microsoft.RecoveryServices/vaults/backup/backupFabrics/Azure/protectionContainers/IaasVMContainer/protectedItems/${local.vm_name}"
+  action      = "backup"
+  body        = jsonencode({
+    properties = {
+      objectType = "IaasVMBackupRequest"
+    }
+  })
+}
+
+resource "azapi_resource_action" "vm_restore" {
+  count       = local.count_vm_restore
+  type        = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems@2023-04-01"
+  resource_id = "${data.azurerm_virtual_machine.maintaining.id}/providers/Microsoft.RecoveryServices/vaults/backup/backupFabrics/Azure/protectionContainers/IaasVMContainer/protectedItems/${local.vm_name}"
+  action      = "restore"
+  body        = jsonencode({
+    properties = {
+      objectType = "IaasVMRestoreRequest",
+      recoveryType = "OriginalLocation"
+    }
+  })
 }
 
 # Disk Updates

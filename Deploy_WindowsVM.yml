@@ -17,6 +17,8 @@ on:
         - Start VM
         - Stop VM
         - Restart VM
+        - Backup VM
+        - Restore VM
         default: "Create (with New RG)"
       environment:
         type: choice
@@ -157,12 +159,7 @@ jobs:
       diskStorageAccountType: '${{inputs.diskStorageAccountType}}'
 
   windows_vm_maintain:
-    if: (github.event.inputs.requestType == 'Update (Data Disk)' || 
-         github.event.inputs.requestType == 'Update (OS Disk)' || 
-         github.event.inputs.requestType == 'Update VM SKU' ||
-         github.event.inputs.requestType == 'Start VM' ||
-         github.event.inputs.requestType == 'Stop VM' ||
-         github.event.inputs.requestType == 'Restart VM')
+    if: (github.event.inputs.requestType == 'Update (Data Disk)' || github.event.inputs.requestType == 'Update (OS Disk)' || github.event.inputs.requestType == 'Update VM SKU' || github.event.inputs.requestType == 'Start VM' || github.event.inputs.requestType == 'Stop VM' || github.event.inputs.requestType == 'Restart VM' || github.event.inputs.requestType == 'Backup VM' || github.event.inputs.requestType == 'Restore VM')
     name: 'Maintain Windows VM ${{inputs.purpose}}'
     uses: ./.github/workflows/WindowsVMMaintain.yml
     needs: parse_subnet_info
@@ -203,4 +200,4 @@ jobs:
       projectou: '${{ inputs.projectou }}'
       subnetInfo: '${{inputs.subnetInfo}}'
       diskSizeGB: '${{ inputs.diskSizeGB }}'
-      diskStorageAccountType: '${{ inputs.diskStorageAccountType }}' 
+      diskStorageAccountType: '${{ inputs.diskStorageAccountType }}'

@@ -116,9 +116,11 @@ variable "request_type" {
       "Remove (Destroy VM)",
       "Start VM",
       "Stop VM",
-      "Restart VM"
+      "Restart VM",
+      "Backup VM",
+      "Restore VM"
     ], var.request_type)
-    error_message = "Invalid request type. Must be one of: Create (with New RG), Create (with Existing RG), Update (Data Disk), Update (OS Disk), Update VM SKU, Remove (Destroy VM), Start VM, Stop VM, Restart VM"
+    error_message = "Invalid request type. Must be one of: Create (with New RG), Create (with Existing RG), Update (Data Disk), Update (OS Disk), Update VM SKU, Remove (Destroy VM), Start VM, Stop VM, Restart VM, Backup VM, Restore VM"
   }
 }
 variable "location" {
