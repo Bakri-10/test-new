@@ -1,0 +1,190 @@
+name: '- Import Windows VM'
+run-name: 'Import Windows VM - ${{inputs.environment}} purpose: ${{inputs.vmName}}'
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        required: true
+        description: Environment
+        options:
+        - DEV
+        - UAT
+        - QA
+        - PROD
+      location:
+        type: choice
+        required: true
+        description: Azure Region
+        options:
+        - eastus2
+        - uksouth
+        - centralus
+        - ukwest
+      vmName:
+        type: string
+        required: true
+        description: "Name of the VM to import"
+      resourceGroupName:
+        type: string
+        required: true
+        description: "Resource Group containing the VM"
+      includeDataDisks:
+        type: boolean
+        required: false
+        description: "Include attached data disks in the import"
+        default: true
+      includeExtensions:
+        type: boolean
+        required: false
+        description: "Include VM extensions in the import"
+        default: false
+      useAutoDetectedSubnets:
+        type: boolean
+        required: false
+        description: "Use auto-detected subnet information instead of manual input"
+        default: true
+      projectou:
+        type: string
+        required: false
+        description: "Organizational Unit (OU) for Domain Join"
+      subnetInfo:
+        type: string
+        required: false
+        description: "JSON formatted array containing subnet names (only used if useAutoDetectedSubnets is false)"
+        default: '[]'
+
+jobs:
+  discover_vm_resources:
+    runs-on: ubuntu-latest
+    outputs:
+      resourceGroupId: ${{ steps.get_resources.outputs.resourceGroupId }}
+      vmId: ${{ steps.get_resources.outputs.vmId }}
+      nic1Id: ${{ steps.get_resources.outputs.nic1Id }}
+      nic2Id: ${{ steps.get_resources.outputs.nic2Id }}
+      dataDiskIds: ${{ steps.get_resources.outputs.dataDiskIds }}
+    steps:
+    - name: Az login
+      uses: azure/login@v2
+      with:
+        creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}'
+        enable-AzPSSession: true
+
+    - name: Discover VM Resources
+      id: get_resources
+      run: |
+        # Get Resource Group ID
+        RG_ID=$(az group show --name ${{ inputs.resourceGroupName }} --query id -o tsv)
+        echo "resourceGroupId=$RG_ID" >> $GITHUB_OUTPUT
+
+        # Get VM ID
+        VM_ID=$(az vm show --resource-group ${{ inputs.resourceGroupName }} --name ${{ inputs.vmName }} --query id -o tsv)
+        echo "vmId=$VM_ID" >> $GITHUB_OUTPUT
+
+        # Get Network Interfaces
+        NIC_IDS=$(az vm show --resource-group ${{ inputs.resourceGroupName }} --name ${{ inputs.vmName }} --query networkProfile.networkInterfaces -o json)
+
+        # Get primary NIC ID
+        NIC1_ID=$(echo $NIC_IDS | jq -r '.[0].id')
+        echo "nic1Id=$NIC1_ID" >> $GITHUB_OUTPUT
+
+        # Get NIC details to extract subnet information
+        NIC1_DETAILS=$(az network nic show --ids $NIC1_ID -o json)
+        SUBNET1_ID=$(echo $NIC1_DETAILS | jq -r '.ipConfigurations[0].subnet.id')
+        SUBNET1_NAME=$(echo $SUBNET1_ID | awk -F/ '{print $NF}')
+        VNET_NAME=$(echo $SUBNET1_ID | awk -F/ '{print $(NF-2)}')
+        echo "subnet1Id=$SUBNET1_ID" >> $GITHUB_OUTPUT
+        echo "subnet1Name=$SUBNET1_NAME" >> $GITHUB_OUTPUT
+        echo "vnetName=$VNET_NAME" >> $GITHUB_OUTPUT
+
+        # Get secondary NIC ID if it exists
+        NIC2_ID=$(echo $NIC_IDS | jq -r '.[1].id // ""')
+        echo "nic2Id=$NIC2_ID" >> $GITHUB_OUTPUT
+
+        # Get subnet info for NIC2 if it exists
+        if [ -n "$NIC2_ID" ]; then
+          NIC2_DETAILS=$(az network nic show --ids $NIC2_ID -o json)
+          SUBNET2_ID=$(echo $NIC2_DETAILS | jq -r '.ipConfigurations[0].subnet.id')
+          SUBNET2_NAME=$(echo $SUBNET2_ID | awk -F/ '{print $NF}')
+          echo "subnet2Id=$SUBNET2_ID" >> $GITHUB_OUTPUT
+          echo "subnet2Name=$SUBNET2_NAME" >> $GITHUB_OUTPUT
+        else
+          echo "subnet2Id=" >> $GITHUB_OUTPUT
+          echo "subnet2Name=" >> $GITHUB_OUTPUT
+        fi
+
+        # Create subnet info JSON
+        if [ -n "$NIC2_ID" ]; then
+          SUBNET_INFO="[\"$SUBNET1_NAME\",\"$SUBNET2_NAME\"]"
+        else
+          SUBNET_INFO="[\"$SUBNET1_NAME\"]"
+        fi
+        echo "autoDetectedSubnetInfo=$SUBNET_INFO" >> $GITHUB_OUTPUT
+
+        # Get data disk IDs if requested
+        if [ "${{ inputs.includeDataDisks }}" == "true" ]; then
+          DATA_DISK_IDS=$(az vm show --resource-group ${{ inputs.resourceGroupName }} --name ${{ inputs.vmName }} --query storageProfile.dataDisks[].managedDisk.id -o json)
+          echo "dataDiskIds=$DATA_DISK_IDS" >> $GITHUB_OUTPUT
+        else
+          echo "dataDiskIds=[]" >> $GITHUB_OUTPUT
+        fi
+
+        # Get VM extensions if requested
+        if [ "${{ inputs.includeExtensions }}" == "true" ]; then
+          echo "Discovering VM extensions..."
+          # Get a list of extensions
+          EXTENSIONS=$(az vm extension list --resource-group ${{ inputs.resourceGroupName }} --vm-name ${{ inputs.vmName }} -o json)
+          # Format as an object with extension names as keys and properties as values
+          EXTENSIONS_FORMATTED=$(echo $EXTENSIONS | jq '{extensions: map({key: .name, value: {publisher: .publisher, type: .extensionType, typeHandlerVersion: .typeHandlerVersion}}) | from_entries}')
+          echo "extensionsJson=$EXTENSIONS_FORMATTED" >> $GITHUB_OUTPUT
+          
+          # Count extensions for information
+          EXTENSION_COUNT=$(echo $EXTENSIONS | jq 'length')
+          echo "Found $EXTENSION_COUNT extensions"
+        else
+          echo "extensionsJson={\"extensions\":{}}" >> $GITHUB_OUTPUT
+          echo "No extensions will be imported (disabled by configuration)"
+        fi
+
+        # Display summary
+        echo "Discovered resources for VM: ${{ inputs.vmName }}"
+        echo "Resource Group ID: $RG_ID"
+        echo "VM ID: $VM_ID"
+        echo "Primary NIC ID: $NIC1_ID"
+        echo "Primary subnet: $SUBNET1_NAME"
+        if [ -n "$NIC2_ID" ]; then
+          echo "Secondary NIC ID: $NIC2_ID"
+          echo "Secondary subnet: $SUBNET2_NAME"
+        fi
+        if [ "${{ inputs.includeDataDisks }}" == "true" ]; then
+          echo "Data Disk IDs: $DATA_DISK_IDS"
+        fi
+
+  import_vm:
+    needs: discover_vm_resources
+    name: 'Import Windows VM ${{ inputs.vmName }}'
+    uses: ./.github/workflows/WindowsVMImport.yml
+    secrets:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      BACKEND_STORAGE_ACCOUNT: ${{ secrets.BACKEND_STORAGE_ACCOUNT }}
+      BACKEND_RESOURCE_GROUP: ${{ secrets.BACKEND_RESOURCE_GROUP }}
+    with:
+      environment: '${{ inputs.environment }}'
+      location: '${{ inputs.location }}'
+      purpose: '${{ inputs.vmName }}'
+      purposeRG: '${{ inputs.resourceGroupName }}'
+      resourceGroupId: '${{ needs.discover_vm_resources.outputs.resourceGroupId }}'
+      vmId: '${{ needs.discover_vm_resources.outputs.vmId }}'
+      nic1Id: '${{ needs.discover_vm_resources.outputs.nic1Id }}'
+      nic2Id: '${{ needs.discover_vm_resources.outputs.nic2Id }}'
+      dataDiskIds: '${{ needs.discover_vm_resources.outputs.dataDiskIds }}'
+      projectou: '${{ inputs.projectou }}'
+      subnetInfo: '${{ inputs.useAutoDetectedSubnets == true || inputs.subnetInfo == "[]" ? needs.discover_vm_resources.outputs.autoDetectedSubnetInfo : inputs.subnetInfo }}'
+      subnet1Id: '${{ needs.discover_vm_resources.outputs.subnet1Id }}'
+      subnet2Id: '${{ needs.discover_vm_resources.outputs.subnet2Id }}'
+      vnetName: '${{ needs.discover_vm_resources.outputs.vnetName }}'
+      includeExtensions: '${{ inputs.includeExtensions }}'
+      extensionsJson: '${{ needs.discover_vm_resources.outputs.extensionsJson }}'

@@ -143,27 +143,80 @@ resource "azapi_resource_action" "vm_restart_start" {
 # Backup and Restore Operations
 resource "azapi_resource_action" "vm_backup" {
   count       = local.count_vm_backup
-  type        = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems@2023-04-01"
-  resource_id = "${data.azurerm_virtual_machine.maintaining.id}/providers/Microsoft.RecoveryServices/vaults/backup/backupFabrics/Azure/protectionContainers/IaasVMContainer/protectedItems/${local.vm_name}"
-  action      = "backup"
+  type        = "Microsoft.Compute/virtualMachines@2023-09-01"
+  resource_id = data.azurerm_virtual_machine.maintaining.id
+  action      = "beginBackup"
   body        = jsonencode({
     properties = {
-      objectType = "IaasVMBackupRequest"
+      backupVaultName = "DefaultBackupVault",
+      backupItemName = local.vm_name,
+      retentionDurationInDays = 30
     }
   })
+  response_export_values = ["*"]
+  
+  # Error handling with lifecycle
+  lifecycle {
+    # Ignore errors if the VM is already protected
+    ignore_changes = [body]
+    # Replace if the backup fails for any reason
+    replace_triggered_by = [data.azurerm_virtual_machine.maintaining]
+  }
+}
+
+# Check if backup vault exists
+data "azapi_resource" "backup_vault" {
+  count = local.count_vm_restore
+  type  = "Microsoft.RecoveryServices/vaults@2023-04-01"
+  resource_id = "/subscriptions/${split("/", data.azurerm_subscription.current.id)[2]}/resourceGroups/${local.rg_name}/providers/Microsoft.RecoveryServices/vaults/DefaultBackupVault"
+  response_export_values = ["*"]
+}
+
+# For restore, we need to first get the recovery points
+data "azapi_resource_list" "recovery_points" {
+  count          = local.count_vm_restore > 0 && try(data.azapi_resource.backup_vault[0].id, "") != "" ? 1 : 0
+  type           = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems/recoveryPoints@2023-04-01"
+  parent_id      = "/subscriptions/${split("/", data.azurerm_subscription.current.id)[2]}/resourceGroups/${local.rg_name}/providers/Microsoft.RecoveryServices/vaults/DefaultBackupVault/backupFabrics/Azure/protectionContainers/IaasVMContainer;iaasvmcontainerv2;${local.rg_name};${local.vm_name}/protectedItems/VM;iaasvmcontainerv2;${local.rg_name};${local.vm_name}"
+  response_export_values = ["*"]
+}
+
+# Check if any recovery points are available
+locals {
+  recovery_points_output = local.count_vm_restore > 0 ? try(data.azapi_resource_list.recovery_points[0].output, "{\"value\":[]}") : "{\"value\":[]}"
+  has_recovery_points = local.count_vm_restore > 0 && try(length(jsondecode(local.recovery_points_output).value), 0) > 0
+}
+
+# Create an informational output for troubleshooting
+output "recovery_point_info" {
+  value = local.count_vm_restore > 0 ? {
+    vault_exists = try(data.azapi_resource.backup_vault[0].id, "") != ""
+    recovery_points_found = local.has_recovery_points
+    first_recovery_point = local.has_recovery_points ? jsondecode(local.recovery_points_output).value[0].id : "None found"
+  } : null
 }
 
 resource "azapi_resource_action" "vm_restore" {
-  count       = local.count_vm_restore
-  type        = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems@2023-04-01"
-  resource_id = "${data.azurerm_virtual_machine.maintaining.id}/providers/Microsoft.RecoveryServices/vaults/backup/backupFabrics/Azure/protectionContainers/IaasVMContainer/protectedItems/${local.vm_name}"
+  count       = local.has_recovery_points ? 1 : 0
+  type        = "Microsoft.RecoveryServices/vaults@2023-04-01"
+  resource_id = "/subscriptions/${split("/", data.azurerm_subscription.current.id)[2]}/resourceGroups/${local.rg_name}/providers/Microsoft.RecoveryServices/vaults/DefaultBackupVault"
   action      = "restore"
   body        = jsonencode({
     properties = {
       objectType = "IaasVMRestoreRequest",
-      recoveryType = "OriginalLocation"
+      recoveryPointId = jsondecode(local.recovery_points_output).value[0].id,
+      recoveryType = "OriginalLocation",
+      sourceResourceId = data.azurerm_virtual_machine.maintaining.id,
+      targetResourceGroupId = "/subscriptions/${split("/", data.azurerm_subscription.current.id)[2]}/resourceGroups/${local.rg_name}"
     }
   })
+  response_export_values = ["*"]
+  depends_on = [data.azapi_resource_list.recovery_points]
+  
+  # Error handling with lifecycle
+  lifecycle {
+    # Replace if the restore fails for any reason
+    replace_triggered_by = [data.azapi_resource_list.recovery_points]
+  }
 }
 
 # Disk Updates

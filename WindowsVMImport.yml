@@ -1,0 +1,422 @@
+name: 'zWindows VM Import (Call)'
+run-name: '${{github.actor}} - Importing Windows VM'
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+        description: "Environment (DEV, UAT, QA, PROD)"
+      location:
+        type: string
+        required: true
+        description: "Azure region of the VM"
+      purpose:
+        type: string
+        required: true
+        description: "Name of the VM to import (will be used in state file key)"
+      purposeRG:
+        type: string
+        required: true
+        description: "Resource group name containing the VM"
+      resourceGroupId:
+        type: string
+        required: true
+        description: "Full Azure Resource ID of the resource group"
+      vmId:
+        type: string
+        required: true
+        description: "Full Azure Resource ID of the VM to import"
+      nic1Id:
+        type: string
+        required: true
+        description: "Full Azure Resource ID of the primary network interface"
+      nic2Id:
+        type: string
+        required: false
+        description: "Full Azure Resource ID of the secondary network interface"
+      dataDiskIds:
+        type: string
+        required: false
+        description: "JSON array of data disk IDs to import"
+        default: "[]"
+      projectou:
+        type: string
+        required: false
+        description: "Organizational Unit for domain join information"
+      subnetInfo:
+        type: string
+        required: true
+        description: "JSON formatted array containing subnet names"
+        default: '["subnet1","subnet2"]'
+      subnet1Id:
+        type: string
+        required: false
+        description: "Full Azure Resource ID of the primary subnet"
+      subnet2Id:
+        type: string
+        required: false
+        description: "Full Azure Resource ID of the secondary subnet"
+      vnetName:
+        type: string
+        required: false
+        description: "Name of the virtual network"
+      includeExtensions:
+        type: boolean
+        required: false
+        description: "Whether to include VM extensions in the import"
+        default: false
+      extensionsJson:
+        type: string
+        required: false
+        description: "JSON object containing VM extension details"
+        default: "{\"extensions\":{}}"
+    secrets:
+      ARM_CLIENT_ID:
+        required: true
+      ARM_CLIENT_SECRET:
+        required: true
+      ARM_SUBSCRIPTION_ID:
+        required: true
+      ARM_TENANT_ID:
+        required: true
+      BACKEND_STORAGE_ACCOUNT:
+        required: true
+      BACKEND_RESOURCE_GROUP:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  wvm-import:
+    name: 'Import Windows VM'
+    env:
+      ARM_CLIENT_ID: ${{secrets.ARM_CLIENT_ID}}
+      ARM_CLIENT_SECRET: ${{secrets.ARM_CLIENT_SECRET}}
+      ARM_TENANT_ID: ${{secrets.ARM_TENANT_ID}}
+      ARM_SUBSCRIPTION_ID: ${{secrets.ARM_SUBSCRIPTION_ID}}
+      ROOT_PATH: 'Azure/windows-vm/import'
+    runs-on: ubuntu-latest
+    environment: ${{inputs.environment}}
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - name: 'Checkout - VM Import (${{ inputs.purpose }})'
+      uses: actions/checkout@v3
+
+    - name: 'Setup Terraform'
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest
+
+    - name: Az login
+      uses: azure/login@v2
+      with:
+        creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
+        enable-AzPSSession: true
+
+    - name: Create import directory
+      run: |
+        mkdir -p ${{env.ROOT_PATH}}
+
+    - name: Copy Terraform files to import directory
+      run: |
+        cp -r Azure/windows-vm/*.tf ${{env.ROOT_PATH}}/ || echo "No files to copy"
+
+    - name: Parse Subnet Names
+      id: parse_subnets
+      run: |
+        # Remove brackets and quotes, split by comma
+        SUBNET_LIST=$(echo ${{inputs.subnetInfo}} | tr -d '[]"' | tr ',' '\n' | jq -R . | jq -s .)
+        # Get first and second subnet names
+        SUBNET1=$(echo $SUBNET_LIST | jq -r '.[0] // empty')
+        SUBNET2=$(echo $SUBNET_LIST | jq -r '.[1] // empty')
+        echo "subnet1=${SUBNET1}" >> $GITHUB_OUTPUT
+        echo "subnet2=${SUBNET2}" >> $GITHUB_OUTPUT
+
+    - name: Create import config file
+      run: |
+        cat > ${{env.ROOT_PATH}}/import.tf <<EOF
+        # This file was auto-generated for importing resources
+
+        # Resource aliases for import
+        resource "azurerm_resource_group" "import" {
+          # These will be filled in by the import process
+          name = "${{inputs.purposeRG}}"
+          location = "${{inputs.location}}"
+        }
+
+        resource "azurerm_windows_virtual_machine" "import" {
+          # These will be filled in by the import process - minimal definition for import
+          name                = "${{inputs.purpose}}"
+          resource_group_name = azurerm_resource_group.import.name
+          location            = azurerm_resource_group.import.location
+          size                = "Standard_DS1_v2"  # Will be updated by import
+          admin_username      = "vmadmin"
+          admin_password      = "placeholder"  # Will be updated post-import
+          
+          network_interface_ids = [
+            azurerm_network_interface.import_nic1.id
+          ]
+          
+          os_disk {
+            caching              = "ReadWrite"
+            storage_account_type = "Standard_LRS"
+          }
+        }
+
+        resource "azurerm_network_interface" "import_nic1" {
+          # These will be filled in by the import process
+          name                = "nic1-import"
+          location            = azurerm_resource_group.import.location
+          resource_group_name = azurerm_resource_group.import.name
+          
+          ip_configuration {
+            name                          = "internal"
+            subnet_id                     = "${{ inputs.subnet1Id }}"
+            private_ip_address_allocation = "Dynamic"
+          }
+        }
+
+        resource "azurerm_network_interface" "import_nic2" {
+          count = "${{ inputs.nic2Id }}" == "" ? 0 : 1
+          name                = "nic2-import"
+          location            = azurerm_resource_group.import.location
+          resource_group_name = azurerm_resource_group.import.name
+          
+          ip_configuration {
+            name                          = "internal"
+            subnet_id                     = "${{ inputs.subnet2Id }}"
+            private_ip_address_allocation = "Dynamic"
+          }
+        }
+
+        output "resource_details" {
+          value = {
+            vm_id = azurerm_windows_virtual_machine.import.id
+            rg_id = azurerm_resource_group.import.id
+            nic1_id = azurerm_network_interface.import_nic1.id
+            nic2_id = "${{ inputs.nic2Id }}" == "" ? null : azurerm_network_interface.import_nic2[0].id
+            location = "${{ inputs.location }}"
+            vnet_name = "${{ inputs.vnetName }}"
+          }
+        }
+        EOF
+
+        # Create import commands file
+        cat > ${{env.ROOT_PATH}}/import_commands.tf <<EOF
+        # Import commands
+
+        # Nothing here - imports will be executed via CLI
+        EOF
+
+    - name: Generate import script
+      run: |
+        cat > ${{env.ROOT_PATH}}/import.sh <<EOF
+        #!/bin/bash
+        set -e
+
+        # Import the resource group
+        terraform import azurerm_resource_group.import ${{inputs.resourceGroupId}}
+
+        # Import the VM
+        terraform import azurerm_windows_virtual_machine.import ${{inputs.vmId}}
+
+        # Import primary NIC
+        terraform import azurerm_network_interface.import_nic1 ${{inputs.nic1Id}}
+
+        # Import second NIC if provided
+        if [ -n "${{inputs.nic2Id}}" ]; then
+          terraform import azurerm_network_interface.import_nic2[0] ${{inputs.nic2Id}}
+        fi
+
+        # Import data disks if provided
+        DISK_IDS=$(echo '${{inputs.dataDiskIds}}' | jq -r '.[]')
+        counter=0
+        for disk_id in \$DISK_IDS; do
+          echo "Importing data disk \$counter: \$disk_id"
+          terraform import "azurerm_managed_disk.import_data_disk[\$counter]" "\$disk_id"
+          counter=$((counter+1))
+        done
+
+        # Import VM extensions if requested
+        if [ "${{inputs.includeExtensions}}" == "true" ]; then
+          echo "Importing VM extensions..."
+          
+          # Parse extension data
+          EXTENSIONS=$(echo '${{inputs.extensionsJson}}' | jq -r '.extensions | keys[]')
+          
+          # Import each extension
+          for ext_name in \$EXTENSIONS; do
+            echo "Importing extension: \$ext_name"
+            # The extension ID follows the pattern: 
+            # /subscriptions/{subId}/resourceGroups/{rgName}/providers/Microsoft.Compute/virtualMachines/{vmName}/extensions/{extName}
+            ext_id="${{inputs.vmId}}/extensions/\$ext_name"
+            terraform import "azurerm_virtual_machine_extension.import_extension[\"\$ext_name\"]" "\$ext_id"
+          done
+        fi
+
+        echo "Import complete"
+        EOF
+
+        chmod +x ${{env.ROOT_PATH}}/import.sh
+
+    - name: Terraform Initialize
+      run: |
+        cd ${{env.ROOT_PATH}}
+        terraform init -backend-config="resource_group_name=${{secrets.BACKEND_RESOURCE_GROUP}}" \
+                      -backend-config="storage_account_name=${{secrets.BACKEND_STORAGE_ACCOUNT}}" \
+                      -backend-config="container_name=terraform-state" \
+                      -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-import-terraform.tfstate" \
+                      -input=false
+      env:
+        TF_VAR_location: '${{inputs.location}}'
+        TF_VAR_purpose: '${{inputs.purpose}}'
+        TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
+        TF_VAR_project_ou: '${{inputs.projectou}}'
+        TF_VAR_subnetname_wvm: '${{ steps.parse_subnets.outputs.subnet1 }}'
+        TF_VAR_subnetname_wvm2: '${{ steps.parse_subnets.outputs.subnet2 }}'
+
+    - name: Run Import
+      id: import_run
+      run: |
+        cd ${{env.ROOT_PATH}}
+        ./import.sh
+        if [ $? -ne 0 ]; then
+          echo "::error::Import operation failed. Check logs for details."
+          echo "import_success=false" >> $GITHUB_OUTPUT
+        else
+          echo "import_success=true" >> $GITHUB_OUTPUT
+        fi
+      continue-on-error: true
+
+    - name: Terraform Plan (Post-Import)
+      if: steps.import_run.outputs.import_success == 'true'
+      id: terraform_plan
+      run: |
+        cd ${{env.ROOT_PATH}}
+        terraform plan -out=tfplan
+        if [ $? -ne 0 ]; then
+          echo "::warning::Terraform plan generated differences. This is expected but check for potential issues."
+          echo "plan_clean=false" >> $GITHUB_OUTPUT
+        else
+          echo "plan_clean=true" >> $GITHUB_OUTPUT
+        fi
+      continue-on-error: true
+
+    - name: Generate Import Report
+      run: |
+        cd ${{env.ROOT_PATH}}
+
+        # Determine import status
+        if [ "${{ steps.import_run.outputs.import_success }}" == "true" ]; then
+          STATUS="✅ Success"
+        else
+          STATUS="❌ Failed - Check logs for details"
+        fi
+
+        echo "# VM Import Report" > import_report.md
+        echo "## Import Status: $STATUS" >> import_report.md
+        echo "## Resources Imported" >> import_report.md
+        echo "- VM: ${{inputs.purpose}}" >> import_report.md
+        echo "- Resource Group: ${{inputs.purposeRG}}" >> import_report.md
+        echo "- Primary NIC: $(basename "${{inputs.nic1Id}}")" >> import_report.md
+
+        if [ -n "${{inputs.nic2Id}}" ]; then
+          echo "- Secondary NIC: $(basename "${{inputs.nic2Id}}")" >> import_report.md
+        fi
+
+        # List data disks
+        if [ "${{inputs.dataDiskIds}}" != "[]" ]; then
+          echo "- Data Disks:" >> import_report.md
+          DISK_IDS=$(echo '${{inputs.dataDiskIds}}' | jq -r '.[]')
+          for disk_id in $DISK_IDS; do
+            echo "  - $(basename "$disk_id")" >> import_report.md
+          done
+        fi
+
+        # List extensions if they were included
+        if [ "${{inputs.includeExtensions}}" == "true" ]; then
+          echo "- Extensions:" >> import_report.md
+          EXTENSIONS=$(echo '${{inputs.extensionsJson}}' | jq -r '.extensions | keys[]')
+          if [ -n "$EXTENSIONS" ]; then
+            for ext_name in $EXTENSIONS; do
+              EXT_PUBLISHER=$(echo '${{inputs.extensionsJson}}' | jq -r ".extensions[\"$ext_name\"].publisher")
+              EXT_TYPE=$(echo '${{inputs.extensionsJson}}' | jq -r ".extensions[\"$ext_name\"].type")
+              echo "  - $ext_name ($EXT_PUBLISHER/$EXT_TYPE)" >> import_report.md
+            done
+          else
+            echo "  - No extensions found" >> import_report.md
+          fi
+        fi
+
+        # Get Terraform state information if successful
+        if [ "${{ steps.import_run.outputs.import_success }}" == "true" ]; then
+          echo "## Terraform State Information" >> import_report.md
+          echo "- State file: ${{ inputs.environment }}-${{ inputs.purpose }}-import-terraform.tfstate" >> import_report.md
+          echo "- Resources in state: $(terraform state list | wc -l)" >> import_report.md
+          echo "- Resource list:" >> import_report.md
+          terraform state list | while read resource; do
+            echo "  - $resource" >> import_report.md
+          done
+        fi
+
+        echo "## Next Steps" >> import_report.md
+        echo "1. Review the Terraform state and plan" >> import_report.md
+        echo "2. Make necessary adjustments to match the actual configuration" >> import_report.md
+        echo "3. Run the post-import migration script to generate configuration for standard management" >> import_report.md
+        echo "4. Apply changes to ensure configuration matches desired state" >> import_report.md
+
+        # Add troubleshooting section if import failed
+        if [ "${{ steps.import_run.outputs.import_success }}" != "true" ]; then
+          echo "" >> import_report.md
+          echo "## Troubleshooting" >> import_report.md
+          echo "The import process encountered errors. Check the following:" >> import_report.md
+          echo "1. Ensure all resource IDs are correct" >> import_report.md
+          echo "2. Verify you have sufficient permissions to access all resources" >> import_report.md
+          echo "3. Check the workflow logs for detailed error messages" >> import_report.md
+          echo "4. The VM may have custom configurations not supported by the import process" >> import_report.md
+        fi
+
+        cat import_report.md
+
+    - name: Prepare Post-Import Migration Script
+      if: steps.import_run.outputs.import_success == 'true'
+      run: |
+        cd ${{env.ROOT_PATH}}
+
+        # Export variables for the migration script
+        echo "Preparing post-import migration script..."
+        echo "#!/bin/bash" > run_migration.sh
+        echo "# Auto-generated script to run the post import migration" >> run_migration.sh
+        echo "export VM_NAME=\"${{inputs.purpose}}\"" >> run_migration.sh
+        echo "export RG_NAME=\"${{inputs.purposeRG}}\"" >> run_migration.sh
+        echo "export ENVIRONMENT=\"${{inputs.environment}}\"" >> run_migration.sh
+        echo "./post_import_migration.sh" >> run_migration.sh
+        chmod +x run_migration.sh
+
+        echo "Post-import migration script prepared. Run ./run_migration.sh to complete the migration process."
+
+    - name: Upload Import Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: vm-import-report
+        path: ${{env.ROOT_PATH}}/import_report.md
+
+    - name: Upload Terraform Plan
+      if: steps.terraform_plan.outputs.plan_clean == 'false'
+      uses: actions/upload-artifact@v3
+      with:
+        name: terraform-plan
+        path: ${{env.ROOT_PATH}}/tfplan
+
+    - name: Upload Migration Scripts
+      if: steps.import_run.outputs.import_success == 'true'
+      uses: actions/upload-artifact@v3
+      with:
+        name: migration-scripts
+        path: |
+          ${{env.ROOT_PATH}}/post_import_migration.sh
+          ${{env.ROOT_PATH}}/run_migration.sh

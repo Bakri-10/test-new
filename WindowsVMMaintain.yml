@@ -94,7 +94,7 @@ jobs:
               inputs.requestType == 'Stop VM' && '-target="azapi_resource_action.vm_stop[0]"' ||
               inputs.requestType == 'Restart VM' && '-target="azapi_resource_action.vm_restart_stop[0]" -target="time_sleep.wait_30_seconds[0]" -target="azapi_resource_action.vm_restart_start[0]"' ||
               inputs.requestType == 'Backup VM' && '-target="azapi_resource_action.vm_backup[0]"' ||
-              inputs.requestType == 'Restore VM' && '-target="azapi_resource_action.vm_restore[0]"' || '' }}
+              inputs.requestType == 'Restore VM' && '-target="data.azapi_resource.backup_vault[0]" -target="data.azapi_resource_list.recovery_points[0]" -target="output.recovery_point_info" -target="azapi_resource_action.vm_restore[0]"' || '' }}
       env:
         TF_VAR_request_type: '${{inputs.requestType}}'
         TF_VAR_location: '${{inputs.location}}'
@@ -119,7 +119,7 @@ jobs:
               inputs.requestType == 'Stop VM' && '-target="azapi_resource_action.vm_stop[0]"' ||
               inputs.requestType == 'Restart VM' && '-target="azapi_resource_action.vm_restart_stop[0]" -target="time_sleep.wait_30_seconds[0]" -target="azapi_resource_action.vm_restart_start[0]"' ||
               inputs.requestType == 'Backup VM' && '-target="azapi_resource_action.vm_backup[0]"' ||
-              inputs.requestType == 'Restore VM' && '-target="azapi_resource_action.vm_restore[0]"' || '' }}
+              inputs.requestType == 'Restore VM' && '-target="data.azapi_resource.backup_vault[0]" -target="data.azapi_resource_list.recovery_points[0]" -target="output.recovery_point_info" -target="azapi_resource_action.vm_restore[0]"' || '' }}
       env:
         TF_VAR_request_type: '${{inputs.requestType}}'
         TF_VAR_location: '${{inputs.location}}'
