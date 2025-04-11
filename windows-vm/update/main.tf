@@ -148,14 +148,29 @@ resource "azapi_resource_action" "vm_restart_start" {
   depends_on  = [time_sleep.wait_30_seconds]
 }
 
-# Recovery Services Vault for Backup
-resource "azurerm_recovery_services_vault" "backup" {
+# First try to find existing Recovery Services Vault
+data "azurerm_recovery_services_vault" "existing_vault" {
   count               = local.count_vm_backup
-  name                = "DefaultBackupVault"
+  name                = "az${var.location_gad_xref[local.naming.location]}-${local.naming.bu}${var.environment_gad_xref[local.naming.environment]}-rsv"
+  resource_group_name = local.rg_name
+}
+
+# Create vault only if it doesn't exist
+resource "azurerm_recovery_services_vault" "backup" {
+  count               = local.count_vm_backup > 0 && length(data.azurerm_recovery_services_vault.existing_vault) == 0 ? 1 : 0
+  name                = "az${var.location_gad_xref[local.naming.location]}-${local.naming.bu}${var.environment_gad_xref[local.naming.environment]}-rsv"
   resource_group_name = local.rg_name
   location            = local.naming.location
   sku                = "Standard"
   soft_delete_enabled = true
+}
+
+locals {
+  vault_name = local.count_vm_backup > 0 ? (
+    length(data.azurerm_recovery_services_vault.existing_vault) > 0 ? 
+    data.azurerm_recovery_services_vault.existing_vault[0].name : 
+    azurerm_recovery_services_vault.backup[0].name
+  ) : ""
 }
 
 # Backup Policy
@@ -163,7 +178,7 @@ resource "azurerm_backup_policy_vm" "backup" {
   count               = local.count_vm_backup
   name                = "DefaultPolicy"
   resource_group_name = local.rg_name
-  recovery_vault_name = azurerm_recovery_services_vault.backup[0].name
+  recovery_vault_name = local.vault_name
 
   timezone = var.timezone_xref[local.naming.location]
 
@@ -181,11 +196,12 @@ resource "azurerm_backup_policy_vm" "backup" {
 resource "azurerm_backup_protected_vm" "backup" {
   count               = local.count_vm_backup
   resource_group_name = local.rg_name
-  recovery_vault_name = azurerm_recovery_services_vault.backup[0].name
+  recovery_vault_name = local.vault_name
   source_vm_id       = data.azurerm_virtual_machine.maintaining.id
   backup_policy_id   = azurerm_backup_policy_vm.backup[0].id
 
   depends_on = [
+    data.azurerm_recovery_services_vault.existing_vault,
     azurerm_recovery_services_vault.backup,
     azurerm_backup_policy_vm.backup
   ]
@@ -195,7 +211,7 @@ resource "azurerm_backup_protected_vm" "backup" {
 resource "azapi_resource_action" "vm_backup" {
   count       = local.count_vm_backup
   type        = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems@2023-04-01"
-  resource_id = "${azurerm_recovery_services_vault.backup[0].id}/backupFabrics/Azure/protectionContainers/IaasVMContainer;iaasvmcontainerv2;${local.rg_name};${local.vm_name}/protectedItems/VM;iaasvmcontainerv2;${local.rg_name};${local.vm_name}"
+  resource_id = "${local.count_vm_backup > 0 ? (length(data.azurerm_recovery_services_vault.existing_vault) > 0 ? data.azurerm_recovery_services_vault.existing_vault[0].id : azurerm_recovery_services_vault.backup[0].id) : ""}/backupFabrics/Azure/protectionContainers/IaasVMContainer;iaasvmcontainerv2;${local.rg_name};${local.vm_name}/protectedItems/VM;iaasvmcontainerv2;${local.rg_name};${local.vm_name}"
   action      = "backup"
   body        = jsonencode({
     properties = {
@@ -209,19 +225,18 @@ resource "azapi_resource_action" "vm_backup" {
   ]
 }
 
-# Check if backup vault exists
-data "azapi_resource" "backup_vault" {
-  count = local.count_vm_restore
-  type  = "Microsoft.RecoveryServices/vaults@2023-04-01"
-  resource_id = "/subscriptions/${split("/", data.azurerm_subscription.current.id)[2]}/resourceGroups/${local.rg_name}/providers/Microsoft.RecoveryServices/vaults/DefaultBackupVault"
-  response_export_values = ["*"]
+# Check if backup vault exists for restore
+data "azurerm_recovery_services_vault" "restore_vault" {
+  count               = local.count_vm_restore
+  name                = "az${var.location_gad_xref[local.naming.location]}-${local.naming.bu}${var.environment_gad_xref[local.naming.environment]}-rsv"
+  resource_group_name = local.rg_name
 }
 
 # For restore, we need to first get the recovery points
 data "azapi_resource_list" "recovery_points" {
-  count          = local.count_vm_restore > 0 && try(data.azapi_resource.backup_vault[0].id, "") != "" ? 1 : 0
+  count          = local.count_vm_restore > 0 && try(data.azurerm_recovery_services_vault.restore_vault[0].id, "") != "" ? 1 : 0
   type           = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems/recoveryPoints@2023-04-01"
-  parent_id      = "/subscriptions/${split("/", data.azurerm_subscription.current.id)[2]}/resourceGroups/${local.rg_name}/providers/Microsoft.RecoveryServices/vaults/DefaultBackupVault/backupFabrics/Azure/protectionContainers/IaasVMContainer;iaasvmcontainerv2;${local.rg_name};${local.vm_name}/protectedItems/VM;iaasvmcontainerv2;${local.rg_name};${local.vm_name}"
+  parent_id      = "${data.azurerm_recovery_services_vault.restore_vault[0].id}/backupFabrics/Azure/protectionContainers/IaasVMContainer;iaasvmcontainerv2;${local.rg_name};${local.vm_name}/protectedItems/VM;iaasvmcontainerv2;${local.rg_name};${local.vm_name}"
   response_export_values = ["*"]
 }
 
@@ -234,7 +249,8 @@ locals {
 # Create an informational output for troubleshooting
 output "recovery_point_info" {
   value = local.count_vm_restore > 0 ? {
-    vault_exists = try(data.azapi_resource.backup_vault[0].id, "") != ""
+    vault_exists = try(data.azurerm_recovery_services_vault.restore_vault[0].id, "") != ""
+    vault_name = try(data.azurerm_recovery_services_vault.restore_vault[0].name, "")
     recovery_points_found = local.has_recovery_points
     first_recovery_point = local.has_recovery_points ? jsondecode(local.recovery_points_output).value[0].id : "None found"
   } : null
@@ -243,7 +259,7 @@ output "recovery_point_info" {
 resource "azapi_resource_action" "vm_restore" {
   count       = local.has_recovery_points ? 1 : 0
   type        = "Microsoft.RecoveryServices/vaults@2023-04-01"
-  resource_id = "/subscriptions/${split("/", data.azurerm_subscription.current.id)[2]}/resourceGroups/${local.rg_name}/providers/Microsoft.RecoveryServices/vaults/DefaultBackupVault"
+  resource_id = data.azurerm_recovery_services_vault.restore_vault[0].id
   action      = "restore"
   body        = jsonencode({
     properties = {
