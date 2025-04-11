@@ -93,7 +93,7 @@ jobs:
               inputs.requestType == 'Start VM' && '-target="azapi_resource_action.vm_start[0]"' ||
               inputs.requestType == 'Stop VM' && '-target="azapi_resource_action.vm_stop[0]"' ||
               inputs.requestType == 'Restart VM' && '-target="azapi_resource_action.vm_restart_stop[0]" -target="time_sleep.wait_30_seconds[0]" -target="azapi_resource_action.vm_restart_start[0]"' ||
-              inputs.requestType == 'Backup VM' && '-target="azapi_resource_action.vm_backup[0]"' ||
+              inputs.requestType == 'Backup VM' && '-target="azurerm_recovery_services_vault.backup[0]" -target="azurerm_backup_policy_vm.backup[0]" -target="azurerm_backup_protected_vm.backup[0]" -target="azapi_resource_action.vm_backup[0]"' ||
               inputs.requestType == 'Restore VM' && '-target="data.azapi_resource.backup_vault[0]" -target="data.azapi_resource_list.recovery_points[0]" -target="output.recovery_point_info" -target="azapi_resource_action.vm_restore[0]"' || '' }}
       env:
         TF_VAR_request_type: '${{inputs.requestType}}'
@@ -118,7 +118,7 @@ jobs:
               inputs.requestType == 'Start VM' && '-target="azapi_resource_action.vm_start[0]"' ||
               inputs.requestType == 'Stop VM' && '-target="azapi_resource_action.vm_stop[0]"' ||
               inputs.requestType == 'Restart VM' && '-target="azapi_resource_action.vm_restart_stop[0]" -target="time_sleep.wait_30_seconds[0]" -target="azapi_resource_action.vm_restart_start[0]"' ||
-              inputs.requestType == 'Backup VM' && '-target="azapi_resource_action.vm_backup[0]"' ||
+              inputs.requestType == 'Backup VM' && '-target="azurerm_recovery_services_vault.backup[0]" -target="azurerm_backup_policy_vm.backup[0]" -target="azurerm_backup_protected_vm.backup[0]" -target="azapi_resource_action.vm_backup[0]"' ||
               inputs.requestType == 'Restore VM' && '-target="data.azapi_resource.backup_vault[0]" -target="data.azapi_resource_list.recovery_points[0]" -target="output.recovery_point_info" -target="azapi_resource_action.vm_restore[0]"' || '' }}
       env:
         TF_VAR_request_type: '${{inputs.requestType}}'

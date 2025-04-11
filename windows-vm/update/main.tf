@@ -18,7 +18,15 @@ terraform {
  }
 
 provider "azurerm" {
-  features {}
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+    virtual_machine {
+      delete_os_disk_on_deletion = true
+      graceful_shutdown = false
+    }
+  }
  }
 provider "azapi" {
   # Configuration options
@@ -140,28 +148,65 @@ resource "azapi_resource_action" "vm_restart_start" {
   depends_on  = [time_sleep.wait_30_seconds]
 }
 
-# Backup and Restore Operations
+# Recovery Services Vault for Backup
+resource "azurerm_recovery_services_vault" "backup" {
+  count               = local.count_vm_backup
+  name                = "DefaultBackupVault"
+  resource_group_name = local.rg_name
+  location            = local.naming.location
+  sku                = "Standard"
+  soft_delete_enabled = true
+}
+
+# Backup Policy
+resource "azurerm_backup_policy_vm" "backup" {
+  count               = local.count_vm_backup
+  name                = "DefaultPolicy"
+  resource_group_name = local.rg_name
+  recovery_vault_name = azurerm_recovery_services_vault.backup[0].name
+
+  timezone = var.timezone_xref[local.naming.location]
+
+  backup {
+    frequency = "Daily"
+    time      = "23:00"
+  }
+
+  retention_daily {
+    count = 30
+  }
+}
+
+# VM Backup Protection
+resource "azurerm_backup_protected_vm" "backup" {
+  count               = local.count_vm_backup
+  resource_group_name = local.rg_name
+  recovery_vault_name = azurerm_recovery_services_vault.backup[0].name
+  source_vm_id       = data.azurerm_virtual_machine.maintaining.id
+  backup_policy_id   = azurerm_backup_policy_vm.backup[0].id
+
+  depends_on = [
+    azurerm_recovery_services_vault.backup,
+    azurerm_backup_policy_vm.backup
+  ]
+}
+
+# Trigger immediate backup after protection is enabled
 resource "azapi_resource_action" "vm_backup" {
   count       = local.count_vm_backup
-  type        = "Microsoft.Compute/virtualMachines@2023-09-01"
-  resource_id = data.azurerm_virtual_machine.maintaining.id
-  action      = "beginBackup"
+  type        = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems@2023-04-01"
+  resource_id = "${azurerm_recovery_services_vault.backup[0].id}/backupFabrics/Azure/protectionContainers/IaasVMContainer;iaasvmcontainerv2;${local.rg_name};${local.vm_name}/protectedItems/VM;iaasvmcontainerv2;${local.rg_name};${local.vm_name}"
+  action      = "backup"
   body        = jsonencode({
     properties = {
-      backupVaultName = "DefaultBackupVault",
-      backupItemName = local.vm_name,
-      retentionDurationInDays = 30
+      objectType = "IaasVMBackupRequest"
     }
   })
   response_export_values = ["*"]
   
-  # Error handling with lifecycle
-  lifecycle {
-    # Ignore errors if the VM is already protected
-    ignore_changes = [body]
-    # Replace if the backup fails for any reason
-    replace_triggered_by = [data.azurerm_virtual_machine.maintaining]
-  }
+  depends_on = [
+    azurerm_backup_protected_vm.backup
+  ]
 }
 
 # Check if backup vault exists
