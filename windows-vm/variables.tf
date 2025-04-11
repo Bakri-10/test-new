@@ -115,6 +115,21 @@ variable "request_type" {
   type        = string
   description = "request_type"
   default     = "Create (with New RG)"
+  validation {
+    condition     = contains([
+      "Create (with New RG)",
+      "Create (with Existing RG)",
+      "Update (Data Disk)",
+      "Update (OS Disk)",
+      "Update VM SKU",
+      "Remove (Destroy VM)",
+      "Start VM",
+      "Stop VM",
+      "Restart VM",
+      "Backup VM"
+    ], var.request_type)
+    error_message = "Invalid request type. Must be one of: Create (with New RG), Create (with Existing RG), Update (Data Disk), Update (OS Disk), Update VM SKU, Remove (Destroy VM), Start VM, Stop VM, Restart VM, Backup VM"
+  }
  }
 variable "location" {
   type        = string
