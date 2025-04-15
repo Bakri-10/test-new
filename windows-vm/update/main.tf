@@ -123,13 +123,15 @@ data "azurerm_backup_policy_vm" "policy" {
   resource_group_name = local.rsv_resource_group
 }
 
-data "azurerm_backup_protected_vm" "vm" {
+# We'll use this to look up the protected VM details
+data "azurerm_resources" "protected_vm" {
   count               = local.count_vm_backup_disable + local.count_vm_backup_now + local.count_vm_restore
-  resource_group_name = local.rsv_resource_group
-  recovery_vault_name = local.rsv_name
   name                = local.vm_name
+  resource_group_name = local.rsv_resource_group
+  type                = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems"
+  required_tags       = {}
 }
-#
+
 # VM Operations
 resource "azapi_resource_action" "vm_start" {
   count       = local.count_vm_start
@@ -242,7 +244,7 @@ resource "azurerm_backup_protected_vm" "vm_backup" {
 resource "azapi_resource_action" "vm_backup_now" {
   count               = local.count_vm_backup_now
   type                = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems@2023-04-01"
-  resource_id         = data.azurerm_backup_protected_vm.vm[0].id
+  resource_id         = data.azurerm_resources.protected_vm[0].resources[0].id
   action              = "backup"
   body                = jsonencode({
     properties = {
@@ -255,7 +257,7 @@ resource "azapi_resource_action" "vm_backup_now" {
 resource "azapi_resource_action" "vm_backup_disable" {
   count               = local.count_vm_backup_disable
   type                = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems@2023-04-01"
-  resource_id         = data.azurerm_backup_protected_vm.vm[0].id
+  resource_id         = data.azurerm_resources.protected_vm[0].resources[0].id
   action              = "removeProtection"
   body                = jsonencode({
     properties = {
@@ -268,7 +270,7 @@ resource "azapi_resource_action" "vm_backup_disable" {
 resource "azapi_resource_action" "vm_restore" {
   count               = local.count_vm_restore
   type                = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems@2023-04-01"
-  resource_id         = data.azurerm_backup_protected_vm.vm[0].id
+  resource_id         = data.azurerm_resources.protected_vm[0].resources[0].id
   action              = "restore"
   body                = jsonencode({
     properties = {
