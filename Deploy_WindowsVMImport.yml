@@ -1,0 +1,95 @@
+name: '- Deploy Windows VM Import'
+run-name: 'Windows VM Import - ${{inputs.environment}} VM: ${{inputs.vmName}}'
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        required: true
+        description: Environment
+        options:
+        - DEV
+        - UAT
+        - QA
+        - PROD
+      location:
+        type: choice
+        required: true
+        description: Deployment Location
+        options:
+        - eastus2
+        - uksouth
+        - centralus
+        - ukwest
+      vmName:
+        type: string
+        required: true
+        description: Name of the VM to import
+      resourceGroupName:
+        type: string
+        required: true
+        description: Resource group containing the VM
+      nicCount:
+        type: number
+        required: false
+        description: Number of network interfaces (default 1)
+        default: 1
+      dataDiskCount:
+        type: number
+        required: false
+        description: Number of data disks (default 0)
+        default: 0
+      generateOnly:
+        type: boolean
+        required: false
+        description: Generate import commands without executing them
+        default: false
+
+jobs:
+  validate-inputs:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Validate inputs
+      id: validate
+      run: |
+        if [[ -z "${{ inputs.vmName }}" ]]; then
+          echo "::error::VM Name is required"
+          exit 1
+        fi
+
+        if [[ -z "${{ inputs.resourceGroupName }}" ]]; then
+          echo "::error::Resource Group Name is required"
+          exit 1
+        fi
+
+        if [[ "${{ inputs.nicCount }}" -lt 1 ]]; then
+          echo "::error::NIC Count must be at least 1"
+          exit 1
+        fi
+
+        if [[ "${{ inputs.dataDiskCount }}" -lt 0 ]]; then
+          echo "::error::Data Disk Count must be 0 or greater"
+          exit 1
+        fi
+
+        echo "All validations passed!"
+
+  windows_vm_import:
+    needs: validate-inputs
+    name: 'VM Import Operation'
+    uses: ./.github/workflows/WindowsVMImport.yml
+    secrets:
+      ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
+      ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
+      ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+      ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
+    with:
+      environment: '${{inputs.environment}}'
+      location: '${{inputs.location}}'
+      vmName: '${{inputs.vmName}}'
+      resourceGroupName: '${{inputs.resourceGroupName}}'
+      nicCount: ${{inputs.nicCount}}
+      dataDiskCount: ${{inputs.dataDiskCount}}
+      generateOnly: ${{inputs.generateOnly}}

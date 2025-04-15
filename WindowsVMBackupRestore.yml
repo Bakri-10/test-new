@@ -1,0 +1,139 @@
+name: 'zWindows VM Backup Restore (Call)'
+run-name: '${{github.actor}} - VM Backup/Restore: ${{inputs.purpose}}'
+on:
+  workflow_call:
+    inputs:
+      requestType:
+        type: string
+        required: true
+        description: "Type of backup operation to perform"
+      environment:
+        type: string
+        required: true
+        description: "Deployment environment (DEV, UAT, QA, PROD)"
+      location:
+        type: string
+        required: true
+        description: "Location of the VM resources"
+      purpose:
+        type: string
+        required: true
+        description: "VM Role/Sequence or existing VM name with hyphen"
+      purposeRG:
+        type: string
+        required: true
+        description: "Resource Group purpose or name with hyphen"
+      recoveryVaultName:
+        type: string
+        required: true
+        description: "Name of the Recovery Services Vault"
+      recoveryVaultRG:
+        type: string
+        required: true
+        description: "Resource Group of the Recovery Services Vault"
+      backupPolicyName:
+        type: string
+        required: false
+        description: "Backup policy name to use (for Enable VM Backup only)"
+        default: "DefaultPolicy"
+      recoveryPointId:
+        type: string
+        required: false
+        description: "Recovery point ID to restore from (for Restore VM only)"
+        default: ""
+    secrets:
+      ARM_CLIENT_ID:
+        required: true
+      ARM_CLIENT_SECRET:
+        required: true
+      ARM_SUBSCRIPTION_ID:
+        required: true
+      ARM_TENANT_ID:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  wvm-backup-restore:
+    name: 'VM Backup/Restore Operations'
+    env:
+      ARM_CLIENT_ID: ${{secrets.ARM_CLIENT_ID}}
+      ARM_CLIENT_SECRET: ${{secrets.ARM_CLIENT_SECRET}}
+      ARM_TENANT_ID: ${{secrets.ARM_TENANT_ID}}
+      ARM_SUBSCRIPTION_ID: ${{secrets.ARM_SUBSCRIPTION_ID}}
+      ROOT_PATH: 'Azure/windows-vm/update'
+    runs-on: ubuntu-latest
+    environment: ${{inputs.environment}}
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Az login
+      uses: azure/login@v2
+      with:
+        creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
+        enable-AzPSSession: true
+
+    - name: 'Terraform Initialize'
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'init'
+        tf_actions_working_dir: ${{env.ROOT_PATH}}
+        tf_actions_comment: true
+      env:
+        TF_VAR_request_type: '${{inputs.requestType}}'
+        TF_VAR_location: '${{inputs.location}}'
+        TF_VAR_purpose: '${{inputs.purpose}}'
+        TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
+        TF_VAR_recovery_vault_name: '${{inputs.recoveryVaultName}}'
+        TF_VAR_recovery_vault_rg: '${{inputs.recoveryVaultRG}}'
+        TF_VAR_backup_policy_name: '${{inputs.backupPolicyName}}'
+        TF_VAR_recovery_point_id: '${{inputs.recoveryPointId}}'
+
+    - name: 'Terraform Plan - Backup/Restore Operations'
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'plan'
+        tf_actions_working_dir: ${{env.ROOT_PATH}}
+        tf_actions_comment: true
+        tf_actions_cli_options: >-
+          ${{ inputs.requestType == 'Enable VM Backup' && '-target="azurerm_backup_protected_vm.vm_backup[0]"' ||
+              inputs.requestType == 'Disable VM Backup' && '-target="azapi_resource_action.vm_backup_disable[0]"' ||
+              inputs.requestType == 'Backup VM Now' && '-target="azapi_resource_action.vm_backup_now[0]"' ||
+              inputs.requestType == 'Restore VM' && '-target="azapi_resource_action.vm_restore[0]" -target="time_sleep.wait_for_restore[0]"' || '' }}
+      env:
+        TF_VAR_request_type: '${{inputs.requestType}}'
+        TF_VAR_location: '${{inputs.location}}'
+        TF_VAR_purpose: '${{inputs.purpose}}'
+        TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
+        TF_VAR_recovery_vault_name: '${{inputs.recoveryVaultName}}'
+        TF_VAR_recovery_vault_rg: '${{inputs.recoveryVaultRG}}'
+        TF_VAR_backup_policy_name: '${{inputs.backupPolicyName}}'
+        TF_VAR_recovery_point_id: '${{inputs.recoveryPointId}}'
+
+    - name: 'Terraform Apply - Backup/Restore Operations'
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: 'apply'
+        tf_actions_working_dir: ${{env.ROOT_PATH}}
+        tf_actions_comment: true
+        tf_actions_cli_options: >-
+          ${{ inputs.requestType == 'Enable VM Backup' && '-target="azurerm_backup_protected_vm.vm_backup[0]"' ||
+              inputs.requestType == 'Disable VM Backup' && '-target="azapi_resource_action.vm_backup_disable[0]"' ||
+              inputs.requestType == 'Backup VM Now' && '-target="azapi_resource_action.vm_backup_now[0]"' ||
+              inputs.requestType == 'Restore VM' && '-target="azapi_resource_action.vm_restore[0]" -target="time_sleep.wait_for_restore[0]"' || '' }}
+      env:
+        TF_VAR_request_type: '${{inputs.requestType}}'
+        TF_VAR_location: '${{inputs.location}}'
+        TF_VAR_purpose: '${{inputs.purpose}}'
+        TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
+        TF_VAR_recovery_vault_name: '${{inputs.recoveryVaultName}}'
+        TF_VAR_recovery_vault_rg: '${{inputs.recoveryVaultRG}}'
+        TF_VAR_backup_policy_name: '${{inputs.backupPolicyName}}'
+        TF_VAR_recovery_point_id: '${{inputs.recoveryPointId}}'

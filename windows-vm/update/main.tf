@@ -54,6 +54,13 @@ locals {
   count_vm_start                            = var.request_type == "Start VM" ? 1 : 0
   count_vm_stop                             = var.request_type == "Stop VM" ? 1 : 0
   count_vm_restart                          = var.request_type == "Restart VM" ? 1 : 0
+  
+  # VM Backup operations
+  count_vm_backup_enable                    = var.request_type == "Enable VM Backup" ? 1 : 0
+  count_vm_backup_disable                   = var.request_type == "Disable VM Backup" ? 1 : 0
+  count_vm_backup_now                       = var.request_type == "Backup VM Now" ? 1 : 0
+  count_vm_restore                          = var.request_type == "Restore VM" ? 1 : 0
+  
   dd_name                                   = join("-",[local.vm_name, "data_disk", "0"])
   feature_vm_stop_start                     = 0 # 0 = not run, 1 - run
   osd_name                                  = join("-", [local.vm_name, "disk-os"])
@@ -81,6 +88,11 @@ locals {
   vm_sequence                               = (strcontains(var.purpose, "/") ? 
                                                 split("/", var.purpose)[1] :
                                                 "nnn")
+                                                
+  # RSV related variables
+  rsv_name                                  = var.recovery_vault_name
+  rsv_resource_group                        = var.recovery_vault_rg
+  backup_policy_id                          = var.backup_policy_id != "" ? var.backup_policy_id : try(data.azurerm_backup_policy_vm.policy[0].id, "")
  }
 #
 data "azurerm_managed_disk" "data_disk" {
@@ -96,6 +108,27 @@ data "azurerm_virtual_machine" "maintaining" {
   name                = local.vm_name
   resource_group_name = local.rg_name
  }
+
+# Backup related data sources
+data "azurerm_recovery_services_vault" "rsv" {
+  count               = local.count_vm_backup_enable + local.count_vm_backup_disable + local.count_vm_backup_now + local.count_vm_restore
+  name                = local.rsv_name
+  resource_group_name = local.rsv_resource_group
+}
+
+data "azurerm_backup_policy_vm" "policy" {
+  count               = local.count_vm_backup_enable
+  name                = var.backup_policy_name
+  recovery_vault_name = local.rsv_name
+  resource_group_name = local.rsv_resource_group
+}
+
+data "azurerm_backup_protected_vm" "vm" {
+  count               = local.count_vm_backup_disable + local.count_vm_backup_now + local.count_vm_restore
+  resource_group_name = local.rsv_resource_group
+  recovery_vault_name = local.rsv_name
+  name                = local.vm_name
+}
 #
 # VM Operations
 resource "azapi_resource_action" "vm_start" {
@@ -194,4 +227,66 @@ resource "azapi_update_resource" "vm_vmSize" {
     }
    }
  }
+
+# Backup Operations
+# Enable VM Backup
+resource "azurerm_backup_protected_vm" "vm_backup" {
+  count               = local.count_vm_backup_enable
+  resource_group_name = local.rsv_resource_group
+  recovery_vault_name = local.rsv_name
+  source_vm_id        = data.azurerm_virtual_machine.maintaining.id
+  backup_policy_id    = local.backup_policy_id
+}
+
+# Trigger backup now (on-demand backup)
+resource "azapi_resource_action" "vm_backup_now" {
+  count               = local.count_vm_backup_now
+  type                = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems@2023-04-01"
+  resource_id         = data.azurerm_backup_protected_vm.vm[0].id
+  action              = "backup"
+  body                = jsonencode({
+    properties = {
+      expiryTimeUTC = timeadd(timestamp(), "168h") # 7 days expiry for on-demand backup
+    }
+  })
+}
+
+# Disable VM Backup
+resource "azapi_resource_action" "vm_backup_disable" {
+  count               = local.count_vm_backup_disable
+  type                = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems@2023-04-01"
+  resource_id         = data.azurerm_backup_protected_vm.vm[0].id
+  action              = "removeProtection"
+  body                = jsonencode({
+    properties = {
+      deleteBackupData = true
+    }
+  })
+}
+
+# Restore VM
+resource "azapi_resource_action" "vm_restore" {
+  count               = local.count_vm_restore
+  type                = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems@2023-04-01"
+  resource_id         = data.azurerm_backup_protected_vm.vm[0].id
+  action              = "restore"
+  body                = jsonencode({
+    properties = {
+      restoreRequestType           = "OriginalLocation",
+      recoveryPointId              = var.recovery_point_id,
+      sourceResourceId             = data.azurerm_virtual_machine.maintaining.id,
+      originalStorageAccountOption = "Restore",
+      originalNetworkingOption     = "Restore",
+      useOriginalStorageAccount    = true,
+      useOriginalNetworkConfig     = true
+    }
+  })
+}
+
+# Monitor restore operation (if needed to track progress)
+resource "time_sleep" "wait_for_restore" {
+  count           = local.count_vm_restore
+  depends_on      = [azapi_resource_action.vm_restore]
+  create_duration = "180s" # Wait for restore to initiate
+}
 #

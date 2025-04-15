@@ -116,9 +116,13 @@ variable "request_type" {
       "Remove (Destroy VM)",
       "Start VM",
       "Stop VM",
-      "Restart VM"
+      "Restart VM",
+      "Enable VM Backup",
+      "Disable VM Backup",
+      "Backup VM Now",
+      "Restore VM"
     ], var.request_type)
-    error_message = "Invalid request type. Must be one of: Create (with New RG), Create (with Existing RG), Update (Data Disk), Update (OS Disk), Update VM SKU, Remove (Destroy VM), Start VM, Stop VM, Restart VM"
+    error_message = "Invalid request type. Must be one of: Create (with New RG), Create (with Existing RG), Update (Data Disk), Update (OS Disk), Update VM SKU, Remove (Destroy VM), Start VM, Stop VM, Restart VM, Enable VM Backup, Disable VM Backup, Backup VM Now, Restore VM"
   }
 }
 variable "location" {
@@ -160,4 +164,35 @@ variable "disk_storage_account_type" {
   default     = "Standard_LRS"
   description = "disk_storage_account_type"
  }
+#
+# Backup and Restore specific variables
+variable "recovery_vault_name" {
+  type        = string
+  description = "(Required for backup operations) Name of the Recovery Services Vault"
+  default     = ""
+}
+
+variable "recovery_vault_rg" {
+  type        = string
+  description = "(Required for backup operations) Resource Group name for the Recovery Services Vault"
+  default     = ""
+}
+
+variable "backup_policy_name" {
+  type        = string
+  description = "(Required for Enable VM Backup) Name of the backup policy to apply"
+  default     = "DefaultPolicy"
+}
+
+variable "backup_policy_id" {
+  type        = string
+  description = "(Optional for Enable VM Backup) Full resource ID of the backup policy to apply"
+  default     = ""
+}
+
+variable "recovery_point_id" {
+  type        = string
+  description = "(Required for Restore VM) The recovery point ID to restore from"
+  default     = ""
+}
 #
