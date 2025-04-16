@@ -79,17 +79,17 @@ jobs:
     name: 'VM Import Operation'
     uses: ./.github/workflows/WindowsVMImport.yml
     secrets:
-      ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
-      ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
-      ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
-      ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
-      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
-      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      BACKEND_STORAGE_ACCOUNT: ${{ secrets.BACKEND_STORAGE_ACCOUNT }}
+      BACKEND_RESOURCE_GROUP: ${{ secrets.BACKEND_RESOURCE_GROUP }}
     with:
-      environment: '${{inputs.environment}}'
-      location: '${{inputs.location}}'
-      vmName: '${{inputs.vmName}}'
-      resourceGroupName: '${{inputs.resourceGroupName}}'
-      nicCount: ${{inputs.nicCount}}
-      dataDiskCount: ${{inputs.dataDiskCount}}
-      generateOnly: ${{inputs.generateOnly}}
+      environment: ${{ inputs.environment }}
+      location: ${{ inputs.location }}
+      vmName: ${{ inputs.vmName }}
+      resourceGroupName: ${{ inputs.resourceGroupName }}
+      nicCount: ${{ inputs.nicCount }}
+      dataDiskCount: ${{ inputs.dataDiskCount }}
+      generateOnly: ${{ inputs.generateOnly }}
