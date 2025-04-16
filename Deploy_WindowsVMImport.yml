@@ -1,5 +1,5 @@
-name: '- Deploy Windows VM Import'
-run-name: 'Windows VM Import - ${{inputs.environment}} VM: ${{inputs.vmName}}'
+name: "- Deploy Windows VM Import"
+run-name: "Windows VM Import - ${{ inputs.environment }} VM: ${{ inputs.vmName }}"
 on:
   workflow_dispatch:
     inputs:
@@ -76,7 +76,7 @@ jobs:
 
   windows_vm_import:
     needs: validate-inputs
-    name: 'VM Import Operation'
+    name: "VM Import Operation"
     uses: ./.github/workflows/WindowsVMImport.yml
     secrets:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
