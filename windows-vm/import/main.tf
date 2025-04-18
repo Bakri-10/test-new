@@ -45,15 +45,15 @@ locals {
   rg_name                     = var.resource_group_name
   vm_id                       = "${local.naming.subscription_id}/resourceGroups/${local.rg_name}/providers/Microsoft.Compute/virtualMachines/${local.vm_name}"
   
-  # Collect NIC information
-  nic_count                   = var.nic_count
+  # Collect NIC information - convert string input to number
+  nic_count                   = tonumber(var.nic_count)
   nic_ids                     = [for i in range(1, local.nic_count + 1) : 
                                   "${local.naming.subscription_id}/resourceGroups/${local.rg_name}/providers/Microsoft.Network/networkInterfaces/${local.vm_name}-nic-${format("%02d", i)}"]
   
-  # Collect disk information
+  # Collect disk information - convert string input to number
   os_disk_name                = "${local.vm_name}-disk-os"
   os_disk_id                  = "${local.naming.subscription_id}/resourceGroups/${local.rg_name}/providers/Microsoft.Compute/disks/${local.os_disk_name}"
-  data_disk_count             = var.data_disk_count
+  data_disk_count             = tonumber(var.data_disk_count)
   data_disk_ids               = [for i in range(0, local.data_disk_count) : 
                                   "${local.naming.subscription_id}/resourceGroups/${local.rg_name}/providers/Microsoft.Compute/disks/${local.vm_name}-data_disk-${i}"]
 }

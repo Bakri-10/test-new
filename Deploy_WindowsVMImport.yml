@@ -30,15 +30,15 @@ on:
         required: true
         description: Resource group containing the VM
       nicCount:
-        type: number
+        type: string
         required: false
         description: Number of network interfaces (default 1)
-        default: 1
+        default: "1"
       dataDiskCount:
-        type: number
+        type: string
         required: false
         description: Number of data disks (default 0)
-        default: 0
+        default: "0"
       generateOnly:
         type: boolean
         required: false

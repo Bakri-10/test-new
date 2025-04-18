@@ -46,21 +46,21 @@ variable "resource_group_name" {
 }
 
 variable "nic_count" {
-  type        = number
+  type        = string
   description = "(Required) The number of network interfaces attached to the VM."
-  default     = 1
+  default     = "1"
   validation {
-    condition     = var.nic_count > 0
-    error_message = "NIC count must be at least 1."
+    condition     = can(tonumber(var.nic_count)) && tonumber(var.nic_count) > 0
+    error_message = "NIC count must be a numeric string with value of at least 1."
   }
 }
 
 variable "data_disk_count" {
-  type        = number
+  type        = string
   description = "(Optional) The number of data disks attached to the VM."
-  default     = 0
+  default     = "0"
   validation {
-    condition     = var.data_disk_count >= 0
-    error_message = "Data disk count must be 0 or greater."
+    condition     = can(tonumber(var.data_disk_count)) && tonumber(var.data_disk_count) >= 0
+    error_message = "Data disk count must be a numeric string with value of 0 or greater."
   }
 } 
