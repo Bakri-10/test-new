@@ -43,6 +43,10 @@ provider "azurerm" {
  }
 #
 locals {
+  # Determine if we're creating or updating resources
+  is_create_operation = var.request_type == "Create (with New RG)" || var.request_type == "Create (with Existing RG)"
+  is_update_operation = !local.is_create_operation
+  
   #Strings
     string_one_data_disk                        = "==> Fail: Domain Join Requires a Single Disk"
     string_validation_passed                    = "==> Passed"
@@ -679,7 +683,10 @@ resource "azurerm_windows_virtual_machine" "main" {
     name                  = (local.validation_map[each.key].state == local.string_validation_passed ? 
                               (each.value).vm_name : 
                               local.validation_map[each.key].state) # input_validation error will show 
-    network_interface_ids = [ (each.value).nic_id_1,(each.value).nic_id_2 ]
+    network_interface_ids = [
+                              azurerm_network_interface.nic1[each.key].id,
+                              azurerm_network_interface.nic2[each.key].id
+                            ]
     resource_group_name   = (each.value).rg_name
     size                  = (each.value).vm_size
   #Optional Arguments
