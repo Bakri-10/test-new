@@ -61,10 +61,13 @@ locals {
 # Data sources
 data "azurerm_subscription" "current" {}
 
-data "azurerm_virtual_machine" "import_vm" {
+# Use azurerm_resources instead of azurerm_virtual_machine to get all VM details
+data "azurerm_resources" "import_vm" {
   provider            = azurerm.adt
   name                = local.vm_name
   resource_group_name = local.rg_name
+  type                = "Microsoft.Compute/virtualMachines"
+  required_tags       = {}
 }
 
 data "azurerm_managed_disk" "os_disk" {
@@ -91,20 +94,25 @@ data "azurerm_network_interface" "nics" {
 # The actual import will happen via the terraform import command in the workflow
 resource "azurerm_windows_virtual_machine" "import" {
   provider            = azurerm.adt
-  name                = data.azurerm_virtual_machine.import_vm.name
-  resource_group_name = data.azurerm_virtual_machine.import_vm.resource_group_name
-  location            = data.azurerm_virtual_machine.import_vm.location
-  size                = data.azurerm_virtual_machine.import_vm.vm_size
+  name                = local.vm_name
+  resource_group_name = local.rg_name
+  location            = try(data.azurerm_resources.import_vm.resources[0].location, var.location)
+  size                = "Standard_D2s_v3" # Using a default size, will be overridden by import
   
   # These values will be updated during import but are required for the resource declaration
   admin_username      = "placeholder"
-  admin_password      = "placeholder"
-  network_interface_ids = [for nic in data.azurerm_network_interface.nics : nic.id]
+  admin_password      = "placeholder123!" # Must meet complexity requirements (placeholder only)
+  
+  # Use placeholder network interface IDs - these will be updated during import
+  network_interface_ids = try(
+    [for nic in data.azurerm_network_interface.nics : nic.id],
+    ["/subscriptions/${local.naming.subscription_id}/resourceGroups/${local.rg_name}/providers/Microsoft.Network/networkInterfaces/${local.vm_name}-nic-01"]
+  )
   
   os_disk {
     caching              = "ReadWrite"
-    storage_account_type = data.azurerm_managed_disk.os_disk.storage_account_type
-    name                 = data.azurerm_managed_disk.os_disk.name
+    storage_account_type = try(data.azurerm_managed_disk.os_disk.storage_account_type, "Standard_LRS")
+    name                 = local.os_disk_name
   }
   
   # Placeholder source image reference - will be updated during import
