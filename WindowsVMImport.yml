@@ -119,7 +119,7 @@ jobs:
         echo "Import commands:"
         cat import_commands.txt
 
-        # Save commands for next step
+        # Set output using Environment Files approach
         echo "commands_file=import_commands.txt" >> $GITHUB_OUTPUT
 
     - name: "Execute Import Commands"

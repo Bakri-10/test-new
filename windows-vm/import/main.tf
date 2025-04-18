@@ -94,7 +94,7 @@ resource "azurerm_windows_virtual_machine" "import" {
   name                = data.azurerm_virtual_machine.import_vm.name
   resource_group_name = data.azurerm_virtual_machine.import_vm.resource_group_name
   location            = data.azurerm_virtual_machine.import_vm.location
-  size                = data.azurerm_virtual_machine.import_vm.size
+  size                = data.azurerm_virtual_machine.import_vm.vm_size
   
   # These values will be updated during import but are required for the resource declaration
   admin_username      = "placeholder"
