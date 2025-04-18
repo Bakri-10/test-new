@@ -66,7 +66,7 @@ jobs:
       run:
         shell: bash
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Az login
       uses: azure/login@v2
@@ -189,7 +189,7 @@ jobs:
         cat import_summary.md
 
     - name: "Upload Import Summary"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: import-summary
         path: import_summary.md
