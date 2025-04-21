@@ -55,6 +55,18 @@ variable "nic_count" {
   }
 }
 
+variable "nic_names" {
+  type        = list(string)
+  description = "(Optional) List of custom NIC names. If not provided, names will be generated based on VM name."
+  default     = null
+}
+
+variable "os_disk_name" {
+  type        = string
+  description = "(Optional) Custom name for the OS disk. If not provided, will be generated based on VM name."
+  default     = null
+}
+
 variable "data_disk_count" {
   type        = string
   description = "(Optional) The number of data disks attached to the VM."
@@ -63,4 +75,10 @@ variable "data_disk_count" {
     condition     = can(tonumber(var.data_disk_count)) && tonumber(var.data_disk_count) >= 0
     error_message = "Data disk count must be a numeric string with value of 0 or greater."
   }
+}
+
+variable "data_disk_names" {
+  type        = list(string)
+  description = "(Optional) List of custom data disk names. If not provided, names will be generated based on VM name."
+  default     = null
 } 

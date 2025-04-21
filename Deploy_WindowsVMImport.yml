@@ -34,11 +34,26 @@ on:
         required: false
         description: Number of network interfaces (default 1)
         default: "1"
+      nicNames:
+        type: string
+        required: false
+        description: JSON array of NIC names (e.g. '["nic1","nic2"]')
+        default: ""
+      osDiskName:
+        type: string
+        required: false
+        description: Name of the OS disk
+        default: ""
       dataDiskCount:
         type: string
         required: false
         description: Number of data disks (default 0)
         default: "0"
+      dataDiskNames:
+        type: string
+        required: false
+        description: JSON array of data disk names (e.g. '["disk1","disk2"]')
+        default: ""
       generateOnly:
         type: boolean
         required: false
@@ -72,6 +87,34 @@ jobs:
           exit 1
         fi
 
+        # Validate NIC names JSON if provided
+        if [[ ! -z "${{ inputs.nicNames }}" ]]; then
+          if ! echo "${{ inputs.nicNames }}" | jq empty; then
+            echo "::error::NIC names must be a valid JSON array"
+            exit 1
+          fi
+          
+          nic_count=$(echo "${{ inputs.nicNames }}" | jq length)
+          if [[ $nic_count -ne ${{ inputs.nicCount }} ]]; then
+            echo "::error::Number of NIC names ($nic_count) does not match NIC count (${{ inputs.nicCount }})"
+            exit 1
+          fi
+        fi
+
+        # Validate data disk names JSON if provided
+        if [[ ! -z "${{ inputs.dataDiskNames }}" ]]; then
+          if ! echo "${{ inputs.dataDiskNames }}" | jq empty; then
+            echo "::error::Data disk names must be a valid JSON array"
+            exit 1
+          fi
+          
+          disk_count=$(echo "${{ inputs.dataDiskNames }}" | jq length)
+          if [[ $disk_count -ne ${{ inputs.dataDiskCount }} ]]; then
+            echo "::error::Number of data disk names ($disk_count) does not match data disk count (${{ inputs.dataDiskCount }})"
+            exit 1
+          fi
+        fi
+
         echo "All validations passed!"
 
   windows_vm_import:
@@ -91,5 +134,8 @@ jobs:
       vmName: ${{ inputs.vmName }}
       resourceGroupName: ${{ inputs.resourceGroupName }}
       nicCount: ${{ inputs.nicCount }}
+      nicNames: ${{ inputs.nicNames }}
+      osDiskName: ${{ inputs.osDiskName }}
       dataDiskCount: ${{ inputs.dataDiskCount }}
+      dataDiskNames: ${{ inputs.dataDiskNames }}
       generateOnly: ${{ inputs.generateOnly }}

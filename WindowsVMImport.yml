@@ -24,11 +24,26 @@ on:
         required: false
         description: "Number of network interfaces attached to the VM"
         default: "1"
+      nicNames:
+        type: string
+        required: false
+        description: "JSON array of NIC names (e.g. '[\"nic1\",\"nic2\"]')"
+        default: ""
+      osDiskName:
+        type: string
+        required: false
+        description: "Name of the OS disk"
+        default: ""
       dataDiskCount:
         type: string
         required: false
         description: "Number of data disks attached to the VM"
         default: "0"
+      dataDiskNames:
+        type: string
+        required: false
+        description: "JSON array of data disk names (e.g. '[\"disk1\",\"disk2\"]')"
+        default: ""
       generateOnly:
         type: boolean
         required: false
@@ -68,6 +83,19 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Parse Resource Names
+      id: parse_names
+      run: |
+        # Parse NIC names if provided
+        if [ ! -z "${{ inputs.nicNames }}" ]; then
+          echo "nic_names=${{ inputs.nicNames }}" >> $GITHUB_ENV
+        fi
+
+        # Parse data disk names if provided
+        if [ ! -z "${{ inputs.dataDiskNames }}" ]; then
+          echo "data_disk_names=${{ inputs.dataDiskNames }}" >> $GITHUB_ENV
+        fi
+
     - name: Az login
       uses: azure/login@v2
       with:
@@ -86,7 +114,10 @@ jobs:
         TF_VAR_vm_name: "${{ inputs.vmName }}"
         TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
         TF_VAR_nic_count: "${{ inputs.nicCount }}"
+        TF_VAR_nic_names: ${{ env.nic_names }}
+        TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
         TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
+        TF_VAR_data_disk_names: ${{ env.data_disk_names }}
         TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.vmName }}-import.tfstate"'
 
     - name: "Terraform Plan - Generate Import Commands"
@@ -102,7 +133,10 @@ jobs:
         TF_VAR_vm_name: "${{ inputs.vmName }}"
         TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
         TF_VAR_nic_count: "${{ inputs.nicCount }}"
+        TF_VAR_nic_names: ${{ env.nic_names }}
+        TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
         TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
+        TF_VAR_data_disk_names: ${{ env.data_disk_names }}
 
     - name: "Extract Import Commands"
       id: extract_commands
@@ -147,7 +181,10 @@ jobs:
         TF_VAR_vm_name: "${{ inputs.vmName }}"
         TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
         TF_VAR_nic_count: "${{ inputs.nicCount }}"
+        TF_VAR_nic_names: ${{ env.nic_names }}
+        TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
         TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
+        TF_VAR_data_disk_names: ${{ env.data_disk_names }}
 
     - name: "Generate Terraform State"
       if: ${{ !inputs.generateOnly && success() }}
@@ -163,7 +200,10 @@ jobs:
         TF_VAR_vm_name: "${{ inputs.vmName }}"
         TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
         TF_VAR_nic_count: "${{ inputs.nicCount }}"
+        TF_VAR_nic_names: ${{ env.nic_names }}
+        TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
         TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
+        TF_VAR_data_disk_names: ${{ env.data_disk_names }}
 
     - name: "Create import summary"
       run: |
@@ -173,15 +213,34 @@ jobs:
         echo "|--------------|------|--------|" >> import_summary.md
         echo "| Virtual Machine | ${{ inputs.vmName }} | Imported |" >> import_summary.md
 
-        for i in $(seq 1 ${{ inputs.nicCount }}); do
-          echo "| Network Interface | ${{ inputs.vmName }}-nic-$(printf "%02d" $i) | Imported |" >> import_summary.md
-        done
+        # Add NICs to summary
+        if [ ! -z "${{ inputs.nicNames }}" ]; then
+          echo "${{ inputs.nicNames }}" | jq -r '.[]' | while read -r nic_name; do
+            echo "| Network Interface | $nic_name | Imported |" >> import_summary.md
+          done
+        else
+          for i in $(seq 1 ${{ inputs.nicCount }}); do
+            echo "| Network Interface | ${{ inputs.vmName }}-nic-$(printf "%02d" $i) | Imported |" >> import_summary.md
+          done
+        fi
 
-        echo "| OS Disk | ${{ inputs.vmName }}-disk-os | Imported |" >> import_summary.md
+        # Add OS disk to summary
+        if [ ! -z "${{ inputs.osDiskName }}" ]; then
+          echo "| OS Disk | ${{ inputs.osDiskName }} | Imported |" >> import_summary.md
+        else
+          echo "| OS Disk | ${{ inputs.vmName }}-disk-os | Imported |" >> import_summary.md
+        fi
 
-        for i in $(seq 0 $((${{ inputs.dataDiskCount }}-1))); do
-          echo "| Data Disk | ${{ inputs.vmName }}-data_disk-$i | Imported |" >> import_summary.md
-        done
+        # Add data disks to summary
+        if [ ! -z "${{ inputs.dataDiskNames }}" ]; then
+          echo "${{ inputs.dataDiskNames }}" | jq -r '.[]' | while read -r disk_name; do
+            echo "| Data Disk | $disk_name | Imported |" >> import_summary.md
+          done
+        else
+          for i in $(seq 0 $((${{ inputs.dataDiskCount }}-1))); do
+            echo "| Data Disk | ${{ inputs.vmName }}-data_disk-$i | Imported |" >> import_summary.md
+          done
+        fi
 
         echo "" >> import_summary.md
         echo "Terraform state file: ${{ inputs.environment }}-${{ inputs.vmName }}-import.tfstate" >> import_summary.md
