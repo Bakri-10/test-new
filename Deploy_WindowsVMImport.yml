@@ -37,7 +37,7 @@ on:
       nicNames:
         type: string
         required: false
-        description: JSON array of NIC names (e.g. '["nic1","nic2"]')
+        description: "For single NIC: enter name directly. For multiple NICs: JSON array (e.g. '[\"nic1\",\"nic2\"]')"
         default: ""
       osDiskName:
         type: string
@@ -87,17 +87,28 @@ jobs:
           exit 1
         fi
 
-        # Validate NIC names JSON if provided
+        # Process and validate NIC names
         if [[ ! -z "${{ inputs.nicNames }}" ]]; then
-          if ! echo "${{ inputs.nicNames }}" | jq empty; then
-            echo "::error::NIC names must be a valid JSON array"
-            exit 1
-          fi
-          
-          nic_count=$(echo "${{ inputs.nicNames }}" | jq length)
-          if [[ $nic_count -ne ${{ inputs.nicCount }} ]]; then
-            echo "::error::Number of NIC names ($nic_count) does not match NIC count (${{ inputs.nicCount }})"
-            exit 1
+          # If NIC count is 1 and the input doesn't start with [, treat as a simple string
+          if [[ "${{ inputs.nicCount }}" -eq 1 ]] && [[ ! "${{ inputs.nicNames }}" =~ ^\[ ]]; then
+            # Format as a proper JSON array for later processing
+            processed_nic_names="[\"${{ inputs.nicNames }}\"]"
+            echo "nic_names_json=$processed_nic_names" >> $GITHUB_ENV
+            echo "Single NIC name provided: ${{ inputs.nicNames }}"
+          else
+            # Try to parse as JSON array
+            if ! echo "${{ inputs.nicNames }}" | jq empty; then
+              echo "::error::NIC names must be a valid JSON array format '[\"nic1\",\"nic2\"]'"
+              exit 1
+            fi
+            
+            nic_count=$(echo "${{ inputs.nicNames }}" | jq length)
+            if [[ $nic_count -ne ${{ inputs.nicCount }} ]]; then
+              echo "::error::Number of NIC names ($nic_count) does not match NIC count (${{ inputs.nicCount }})"
+              exit 1
+            fi
+            
+            echo "nic_names_json=${{ inputs.nicNames }}" >> $GITHUB_ENV
           fi
         fi
 
@@ -134,7 +145,7 @@ jobs:
       vmName: ${{ inputs.vmName }}
       resourceGroupName: ${{ inputs.resourceGroupName }}
       nicCount: ${{ inputs.nicCount }}
-      nicNames: ${{ inputs.nicNames }}
+      nicNames: ${{ env.nic_names_json || inputs.nicNames }}
       osDiskName: ${{ inputs.osDiskName }}
       dataDiskCount: ${{ inputs.dataDiskCount }}
       dataDiskNames: ${{ inputs.dataDiskNames }}

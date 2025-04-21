@@ -27,7 +27,7 @@ on:
       nicNames:
         type: string
         required: false
-        description: "JSON array of NIC names (e.g. '[\"nic1\",\"nic2\"]')"
+        description: "For single NIC: enter name directly. For multiple NICs: JSON array"
         default: ""
       osDiskName:
         type: string
@@ -86,9 +86,22 @@ jobs:
     - name: Parse Resource Names
       id: parse_names
       run: |
-        # Parse NIC names if provided
+        # Process NIC names
         if [ ! -z "${{ inputs.nicNames }}" ]; then
-          echo "nic_names=${{ inputs.nicNames }}" >> $GITHUB_ENV
+          # Check if the input is already a valid JSON array
+          if echo "${{ inputs.nicNames }}" | jq empty > /dev/null 2>&1; then
+            echo "nic_names=${{ inputs.nicNames }}" >> $GITHUB_ENV
+            echo "Using provided NIC names JSON array"
+          else
+            # For a single NIC, convert to JSON array
+            if [ "${{ inputs.nicCount }}" -eq "1" ]; then
+              echo "nic_names=[\"${{ inputs.nicNames }}\"]" >> $GITHUB_ENV
+              echo "Converted single NIC name to JSON array: ${{ inputs.nicNames }}"
+            else
+              echo "ERROR: NIC names format is invalid"
+              exit 1
+            fi
+          fi
         fi
 
         # Parse data disk names if provided
@@ -215,7 +228,7 @@ jobs:
 
         # Add NICs to summary
         if [ ! -z "${{ inputs.nicNames }}" ]; then
-          echo "${{ inputs.nicNames }}" | jq -r '.[]' | while read -r nic_name; do
+          echo "${{ env.nic_names }}" | jq -r '.[]' | while read -r nic_name; do
             echo "| Network Interface | $nic_name | Imported |" >> import_summary.md
           done
         else
@@ -233,7 +246,7 @@ jobs:
 
         # Add data disks to summary
         if [ ! -z "${{ inputs.dataDiskNames }}" ]; then
-          echo "${{ inputs.dataDiskNames }}" | jq -r '.[]' | while read -r disk_name; do
+          echo "${{ env.data_disk_names }}" | jq -r '.[]' | while read -r disk_name; do
             echo "| Data Disk | $disk_name | Imported |" >> import_summary.md
           done
         else
