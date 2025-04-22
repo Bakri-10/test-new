@@ -104,9 +104,24 @@ jobs:
           fi
         fi
 
-        # Parse data disk names if provided
-        if [ ! -z "${{ inputs.dataDiskNames }}" ]; then
-          echo "data_disk_names=${{ inputs.dataDiskNames }}" >> $GITHUB_ENV
+        # Process data disk names
+        if [ "${{ inputs.dataDiskCount }}" -eq "0" ]; then
+          # When data disk count is 0, set an empty array
+          echo "data_disk_names=[]" >> $GITHUB_ENV
+          echo "No data disks will be imported"
+        elif [ ! -z "${{ inputs.dataDiskNames }}" ]; then
+          # Check if the input is a valid JSON array
+          if echo "${{ inputs.dataDiskNames }}" | jq empty > /dev/null 2>&1; then
+            echo "data_disk_names=${{ inputs.dataDiskNames }}" >> $GITHUB_ENV
+            echo "Using provided data disk names JSON array"
+          else
+            echo "ERROR: Data disk names format is invalid"
+            exit 1
+          fi
+        else
+          # Default empty array if not specified and count is greater than 0
+          echo "data_disk_names=[]" >> $GITHUB_ENV
+          echo "Using default naming for data disks"
         fi
 
     - name: Az login
