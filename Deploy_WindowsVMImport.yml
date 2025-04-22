@@ -34,11 +34,6 @@ on:
         required: false
         description: Size of the VM (e.g. Standard_D2s_v3)
         default: "Standard_D2s_v3"
-      nicCount:
-        type: string
-        required: false
-        description: Number of network interfaces (default 1)
-        default: "1"
       nicNames:
         type: string
         required: false
@@ -70,6 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       nic_names_json: ${{ steps.validate.outputs.nic_names_json }}
+      nic_count: ${{ steps.validate.outputs.nic_count }}
     steps:
     - name: Validate inputs
       id: validate
@@ -84,11 +80,6 @@ jobs:
           exit 1
         fi
 
-        if [[ "${{ inputs.nicCount }}" -lt 1 ]]; then
-          echo "::error::NIC Count must be at least 1"
-          exit 1
-        fi
-
         if [[ "${{ inputs.dataDiskCount }}" -lt 0 ]]; then
           echo "::error::Data Disk Count must be 0 or greater"
           exit 1
@@ -96,11 +87,12 @@ jobs:
 
         # Process and validate NIC names
         if [[ ! -z "${{ inputs.nicNames }}" ]]; then
-          # If NIC count is 1 and the input doesn't start with [, treat as a simple string
-          if [[ "${{ inputs.nicCount }}" -eq 1 ]] && [[ ! "${{ inputs.nicNames }}" =~ ^\[ ]]; then
+          # If the input doesn't start with [, treat as a simple string (single NIC)
+          if [[ ! "${{ inputs.nicNames }}" =~ ^\[ ]]; then
             # Format as a proper JSON array for later processing
             processed_nic_names="[\"${{ inputs.nicNames }}\"]"
             echo "nic_names_json=$processed_nic_names" >> $GITHUB_OUTPUT
+            echo "nic_count=1" >> $GITHUB_OUTPUT
             echo "Single NIC name provided: ${{ inputs.nicNames }}"
           else
             # Try to parse as JSON array
@@ -110,13 +102,19 @@ jobs:
             fi
             
             nic_count=$(echo "${{ inputs.nicNames }}" | jq length)
-            if [[ $nic_count -ne ${{ inputs.nicCount }} ]]; then
-              echo "::error::Number of NIC names ($nic_count) does not match NIC count (${{ inputs.nicCount }})"
+            if [[ $nic_count -lt 1 ]]; then
+              echo "::error::At least one NIC name must be provided"
               exit 1
             fi
             
             echo "nic_names_json=${{ inputs.nicNames }}" >> $GITHUB_OUTPUT
+            echo "nic_count=$nic_count" >> $GITHUB_OUTPUT
+            echo "Using provided NIC names: $nic_count NICs found"
           fi
+        else
+          # Default to single NIC with auto-naming
+          echo "nic_count=1" >> $GITHUB_OUTPUT
+          echo "Using default naming for a single NIC"
         fi
 
         # Validate data disk names JSON if provided
@@ -152,7 +150,7 @@ jobs:
       vmName: ${{ inputs.vmName }}
       resourceGroupName: ${{ inputs.resourceGroupName }}
       vmSize: ${{ inputs.vmSize }}
-      nicCount: ${{ inputs.nicCount }}
+      nicCount: ${{ needs.validate-inputs.outputs.nic_count }}
       nicNames: ${{ needs.validate-inputs.outputs.nic_names_json || inputs.nicNames }}
       osDiskName: ${{ inputs.osDiskName }}
       dataDiskCount: ${{ inputs.dataDiskCount }}
