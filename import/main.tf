@@ -104,7 +104,7 @@ resource "azurerm_windows_virtual_machine" "import" {
   name                = local.vm_name
   resource_group_name = local.rg_name
   location            = data.azurerm_resource_group.target_rg.location
-  size                = try(data.azurerm_virtual_machine.existing.size, "Standard_D2s_v3")
+  size                = var.vm_size
   
   # These values will be updated during import
   admin_username      = "placeholder"

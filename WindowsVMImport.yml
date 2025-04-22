@@ -19,6 +19,11 @@ on:
         type: string
         required: true
         description: "Resource group containing the VM"
+      vmSize:
+        type: string
+        required: false
+        description: "Size of the VM (e.g. Standard_D2s_v3)"
+        default: "Standard_D2s_v3"
       nicCount:
         type: string
         required: false
@@ -141,6 +146,7 @@ jobs:
         TF_VAR_location: "${{ inputs.location }}"
         TF_VAR_vm_name: "${{ inputs.vmName }}"
         TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
+        TF_VAR_vm_size: "${{ inputs.vmSize }}"
         TF_VAR_nic_count: "${{ inputs.nicCount }}"
         TF_VAR_nic_names: ${{ env.nic_names }}
         TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
@@ -160,6 +166,7 @@ jobs:
         TF_VAR_location: "${{ inputs.location }}"
         TF_VAR_vm_name: "${{ inputs.vmName }}"
         TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
+        TF_VAR_vm_size: "${{ inputs.vmSize }}"
         TF_VAR_nic_count: "${{ inputs.nicCount }}"
         TF_VAR_nic_names: ${{ env.nic_names }}
         TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
@@ -208,6 +215,7 @@ jobs:
         TF_VAR_location: "${{ inputs.location }}"
         TF_VAR_vm_name: "${{ inputs.vmName }}"
         TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
+        TF_VAR_vm_size: "${{ inputs.vmSize }}"
         TF_VAR_nic_count: "${{ inputs.nicCount }}"
         TF_VAR_nic_names: ${{ env.nic_names }}
         TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
@@ -227,6 +235,7 @@ jobs:
         TF_VAR_location: "${{ inputs.location }}"
         TF_VAR_vm_name: "${{ inputs.vmName }}"
         TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
+        TF_VAR_vm_size: "${{ inputs.vmSize }}"
         TF_VAR_nic_count: "${{ inputs.nicCount }}"
         TF_VAR_nic_names: ${{ env.nic_names }}
         TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"

@@ -29,6 +29,11 @@ on:
         type: string
         required: true
         description: Resource group containing the VM
+      vmSize:
+        type: string
+        required: false
+        description: Size of the VM (e.g. Standard_D2s_v3)
+        default: "Standard_D2s_v3"
       nicCount:
         type: string
         required: false
@@ -146,6 +151,7 @@ jobs:
       location: ${{ inputs.location }}
       vmName: ${{ inputs.vmName }}
       resourceGroupName: ${{ inputs.resourceGroupName }}
+      vmSize: ${{ inputs.vmSize }}
       nicCount: ${{ inputs.nicCount }}
       nicNames: ${{ needs.validate-inputs.outputs.nic_names_json || inputs.nicNames }}
       osDiskName: ${{ inputs.osDiskName }}

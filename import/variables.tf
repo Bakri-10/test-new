@@ -81,4 +81,10 @@ variable "data_disk_names" {
   type        = list(string)
   description = "(Optional) List of custom data disk names. If not provided, names will be generated based on VM name."
   default     = null
+}
+
+variable "vm_size" {
+  type        = string
+  description = "(Required) The size of the VM to import (e.g. Standard_D2s_v3, Standard_F4s_v2)"
+  default     = "Standard_D2s_v3"
 } 
