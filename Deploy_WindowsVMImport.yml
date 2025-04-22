@@ -63,6 +63,8 @@ on:
 jobs:
   validate-inputs:
     runs-on: ubuntu-latest
+    outputs:
+      nic_names_json: ${{ steps.validate.outputs.nic_names_json }}
     steps:
     - name: Validate inputs
       id: validate
@@ -93,7 +95,7 @@ jobs:
           if [[ "${{ inputs.nicCount }}" -eq 1 ]] && [[ ! "${{ inputs.nicNames }}" =~ ^\[ ]]; then
             # Format as a proper JSON array for later processing
             processed_nic_names="[\"${{ inputs.nicNames }}\"]"
-            echo "nic_names_json=$processed_nic_names" >> $GITHUB_ENV
+            echo "nic_names_json=$processed_nic_names" >> $GITHUB_OUTPUT
             echo "Single NIC name provided: ${{ inputs.nicNames }}"
           else
             # Try to parse as JSON array
@@ -108,7 +110,7 @@ jobs:
               exit 1
             fi
             
-            echo "nic_names_json=${{ inputs.nicNames }}" >> $GITHUB_ENV
+            echo "nic_names_json=${{ inputs.nicNames }}" >> $GITHUB_OUTPUT
           fi
         fi
 
@@ -145,7 +147,7 @@ jobs:
       vmName: ${{ inputs.vmName }}
       resourceGroupName: ${{ inputs.resourceGroupName }}
       nicCount: ${{ inputs.nicCount }}
-      nicNames: ${{ env.nic_names_json || inputs.nicNames }}
+      nicNames: ${{ needs.validate-inputs.outputs.nic_names_json || inputs.nicNames }}
       osDiskName: ${{ inputs.osDiskName }}
       dataDiskCount: ${{ inputs.dataDiskCount }}
       dataDiskNames: ${{ inputs.dataDiskNames }}
