@@ -32,7 +32,7 @@ on:
       nicNames:
         type: string
         required: false
-        description: "For single NIC: enter name directly. For multiple NICs: JSON array"
+        description: "Name of the NIC (for single NIC) or JSON array for multiple NICs"
         default: ""
       osDiskName:
         type: string
@@ -91,21 +91,22 @@ jobs:
     - name: Parse Resource Names
       id: parse_names
       run: |
-        # Process NIC names
+        # Process NIC names - handle both JSON array and direct string input
         if [ ! -z "${{ inputs.nicNames }}" ]; then
-          # Check if the input is already a valid JSON array
-          if echo "${{ inputs.nicNames }}" | jq empty > /dev/null 2>&1; then
-            echo "nic_names=${{ inputs.nicNames }}" >> $GITHUB_ENV
-            echo "Using provided NIC names JSON array"
-          else
-            # For a single NIC, convert to JSON array
-            if [ "${{ inputs.nicCount }}" -eq "1" ]; then
-              echo "nic_names=[\"${{ inputs.nicNames }}\"]" >> $GITHUB_ENV
-              echo "Converted single NIC name to JSON array: ${{ inputs.nicNames }}"
+          # Check if input starts with [ and ends with ] - JSON array format
+          if [[ "${{ inputs.nicNames }}" =~ ^\[.*\]$ ]]; then
+            # It's a JSON array - validate and use it directly
+            if echo "${{ inputs.nicNames }}" | jq empty > /dev/null 2>&1; then
+              echo "nic_names=${{ inputs.nicNames }}" >> $GITHUB_ENV
+              echo "Using provided NIC names JSON array"
             else
-              echo "ERROR: NIC names format is invalid"
+              echo "ERROR: NIC names JSON format is invalid"
               exit 1
             fi
+          else
+            # It's a single NIC name - convert to JSON array
+            echo "nic_names=[\"${{ inputs.nicNames }}\"]" >> $GITHUB_ENV
+            echo "Converted single NIC name to JSON array: ${{ inputs.nicNames }}"
           fi
         fi
 
