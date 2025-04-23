@@ -117,6 +117,11 @@ jobs:
         creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
         enable-AzPSSession: true
 
+    - name: "Setup Terraform"
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "latest"
+
     - name: "Terraform Initialize"
       uses: hashicorp/terraform-github-actions@master
       with:
@@ -157,10 +162,15 @@ jobs:
 
     - name: "Extract Import Commands"
       id: extract_commands
-      uses: hashicorp/terraform-github-actions@master
       run: |
         cd ${{ env.ROOT_PATH }}
         echo "Generating import commands..."
+
+        # Make sure jq is installed
+        if ! command -v jq &> /dev/null; then
+          echo "Installing jq..."
+          sudo apt-get update && sudo apt-get install -y jq
+        fi
 
         # Generate commands for VM, NICs, disks, and attachments
         terraform output -json vm_import_command | jq -r '.' > import_commands.txt
@@ -179,6 +189,12 @@ jobs:
       run: |
         cd ${{ env.ROOT_PATH }}
         echo "Executing import commands..."
+
+        # Ensure terraform is in PATH
+        if ! command -v terraform &> /dev/null; then
+          echo "Error: terraform not found. Verify it was installed correctly."
+          exit 1
+        fi
 
         # Execute each import command one by one
         while IFS= read -r cmd; do
