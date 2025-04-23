@@ -204,12 +204,6 @@ jobs:
           done
         fi
 
-        # For OS disk import
-        os_disk_name="${{ inputs.osDiskName }}"
-        if [ -z "$os_disk_name" ]; then
-          os_disk_name="${{ inputs.vmName }}-disk-os"
-        fi
-        echo "terraform import 'azurerm_managed_disk.os_disk' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$os_disk_name" >> import_commands.txt
 
         # For data disk imports
         if [ "${{ inputs.dataDiskCount }}" -gt "0" ]; then
