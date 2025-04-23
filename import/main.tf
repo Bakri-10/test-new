@@ -39,28 +39,10 @@ locals {
   
   # Collect NIC information
   nic_count                   = tonumber(var.nic_count)
-  
-  # Handle different formats of NIC names input
-  parsed_nic_names            = try(
-    # If it's already a valid list
-    var.nic_names,
-    # If it's a single string, make it a one-element list
-    [var.nic_names != null && var.nic_names != "" ? trimspace(var.nic_names) : null],
-    # Default to null
-    null
-  )
-  
-  # Final NIC names list, with defaults if needed
-  nic_names                   = local.parsed_nic_names != null ? [
-    for name in local.parsed_nic_names : 
-      name != null && name != "" ? name : null
-  ] : [
+  nic_names                   = var.nic_names != null ? var.nic_names : [
     for i in range(1, local.nic_count + 1) : "${local.vm_name}-nic-${format("%02d", i)}"
   ]
-  
-  # Filter out null values and create IDs
-  clean_nic_names             = [for name in local.nic_names : name if name != null]
-  nic_ids                     = [for name in local.clean_nic_names : 
+  nic_ids                     = [for name in local.nic_names : 
     "${local.naming.subscription_id}/resourceGroups/${local.rg_name}/providers/Microsoft.Network/networkInterfaces/${name}"
   ]
   
@@ -111,7 +93,7 @@ data "azurerm_managed_disk" "data_disks" {
 # Get NIC details
 data "azurerm_network_interface" "nics" {
   provider            = azurerm.adt
-  for_each           = toset(local.clean_nic_names)
+  for_each           = toset(local.nic_names)
   name                = each.value
   resource_group_name = local.rg_name
 }

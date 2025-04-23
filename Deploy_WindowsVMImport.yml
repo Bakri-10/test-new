@@ -37,7 +37,7 @@ on:
       nicNames:
         type: string
         required: false
-        description: "Name of the NIC (leave blank to use default naming)"
+        description: "For single NIC: enter name directly. For multiple NICs: JSON array (e.g. '[\"nic1\",\"nic2\"]')"
         default: ""
       osDiskName:
         type: string
@@ -87,15 +87,34 @@ jobs:
 
         # Process and validate NIC names
         if [[ ! -z "${{ inputs.nicNames }}" ]]; then
-          # Convert direct input to a JSON array for later processing
-          processed_nic_names="[\"${{ inputs.nicNames }}\"]"
-          echo "nic_names_json=$processed_nic_names" >> $GITHUB_OUTPUT
-          echo "nic_count=1" >> $GITHUB_OUTPUT
-          echo "Using NIC name: ${{ inputs.nicNames }}"
+          # If the input doesn't start with [, treat as a simple string (single NIC)
+          if [[ ! "${{ inputs.nicNames }}" =~ ^\[ ]]; then
+            # Format as a proper JSON array for later processing
+            processed_nic_names="[\"${{ inputs.nicNames }}\"]"
+            echo "nic_names_json=$processed_nic_names" >> $GITHUB_OUTPUT
+            echo "nic_count=1" >> $GITHUB_OUTPUT
+            echo "Single NIC name provided: ${{ inputs.nicNames }}"
+          else
+            # Try to parse as JSON array
+            if ! echo "${{ inputs.nicNames }}" | jq empty; then
+              echo "::error::NIC names must be a valid JSON array format '[\"nic1\",\"nic2\"]'"
+              exit 1
+            fi
+            
+            nic_count=$(echo "${{ inputs.nicNames }}" | jq length)
+            if [[ $nic_count -lt 1 ]]; then
+              echo "::error::At least one NIC name must be provided"
+              exit 1
+            fi
+            
+            echo "nic_names_json=${{ inputs.nicNames }}" >> $GITHUB_OUTPUT
+            echo "nic_count=$nic_count" >> $GITHUB_OUTPUT
+            echo "Using provided NIC names: $nic_count NICs found"
+          fi
         else
           # Default to single NIC with auto-naming
           echo "nic_count=1" >> $GITHUB_OUTPUT
-          echo "Using default naming for the NIC"
+          echo "Using default naming for a single NIC"
         fi
 
         # Validate data disk names JSON if provided

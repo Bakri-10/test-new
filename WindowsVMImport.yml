@@ -32,7 +32,7 @@ on:
       nicNames:
         type: string
         required: false
-        description: "Name of the NIC (for single NIC) or JSON array for multiple NICs"
+        description: "For single NIC: enter name directly. For multiple NICs: JSON array"
         default: ""
       osDiskName:
         type: string
@@ -88,25 +88,29 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest
+
     - name: Parse Resource Names
       id: parse_names
       run: |
-        # Process NIC names - handle both JSON array and direct string input
+        # Process NIC names
         if [ ! -z "${{ inputs.nicNames }}" ]; then
-          # Check if input starts with [ and ends with ] - JSON array format
-          if [[ "${{ inputs.nicNames }}" =~ ^\[.*\]$ ]]; then
-            # It's a JSON array - validate and use it directly
-            if echo "${{ inputs.nicNames }}" | jq empty > /dev/null 2>&1; then
-              echo "nic_names=${{ inputs.nicNames }}" >> $GITHUB_ENV
-              echo "Using provided NIC names JSON array"
+          # Check if the input is already a valid JSON array
+          if echo "${{ inputs.nicNames }}" | jq empty > /dev/null 2>&1; then
+            echo "nic_names=${{ inputs.nicNames }}" >> $GITHUB_ENV
+            echo "Using provided NIC names JSON array"
+          else
+            # For a single NIC, convert to JSON array
+            if [ "${{ inputs.nicCount }}" -eq "1" ]; then
+              echo "nic_names=[\"${{ inputs.nicNames }}\"]" >> $GITHUB_ENV
+              echo "Converted single NIC name to JSON array: ${{ inputs.nicNames }}"
             else
-              echo "ERROR: NIC names JSON format is invalid"
+              echo "ERROR: NIC names format is invalid"
               exit 1
             fi
-          else
-            # It's a single NIC name - convert to JSON array
-            echo "nic_names=[\"${{ inputs.nicNames }}\"]" >> $GITHUB_ENV
-            echo "Converted single NIC name to JSON array: ${{ inputs.nicNames }}"
           fi
         fi
 
@@ -212,16 +216,6 @@ jobs:
         done < import_commands.txt
 
         echo "Import completed!"
-      env:
-        TF_VAR_location: "${{ inputs.location }}"
-        TF_VAR_vm_name: "${{ inputs.vmName }}"
-        TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
-        TF_VAR_vm_size: "${{ inputs.vmSize }}"
-        TF_VAR_nic_count: "${{ inputs.nicCount }}"
-        TF_VAR_nic_names: ${{ env.nic_names }}
-        TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
-        TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
-        TF_VAR_data_disk_names: ${{ env.data_disk_names }}
 
     - name: "Generate Terraform State"
       if: ${{ !inputs.generateOnly && success() }}
