@@ -164,6 +164,14 @@ jobs:
       id: extract_commands
       run: |
         cd ${{ env.ROOT_PATH }}
+        echo "Current working directory: $(pwd)"
+        echo "Directory contents:"
+        ls -la
+
+        # Debug Terraform installation
+        which terraform || echo "Terraform not found in PATH"
+        terraform version || echo "Cannot determine Terraform version"
+
         echo "Generating import commands..."
 
         # Make sure jq is installed
@@ -172,10 +180,8 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
         fi
 
-        # First, ensure Terraform plan is run to generate outputs
-        terraform plan -out=tfplan
+        # Generate import commands directly without relying on terraform
 
-        # Generate custom import commands
         # VM import command
         vm_id="/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}"
         echo "terraform import azurerm_windows_virtual_machine.import ${vm_id}" > import_commands.txt
