@@ -172,11 +172,51 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
         fi
 
-        # Generate commands for VM, NICs, disks, and attachments
-        terraform output -json vm_import_command | jq -r '.' > import_commands.txt
-        terraform output -json nic_import_commands | jq -r '.[]' >> import_commands.txt
-        terraform output -json data_disk_import_commands | jq -r '.[]' >> import_commands.txt
-        terraform output -json data_disk_attachment_import_commands | jq -r '.[]' >> import_commands.txt
+        # First, ensure Terraform plan is run to generate outputs
+        terraform plan -out=tfplan
+
+        # Generate custom import commands
+        # VM import command
+        vm_id="/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}"
+        echo "terraform import azurerm_windows_virtual_machine.import ${vm_id}" > import_commands.txt
+
+        # For NIC imports
+        for i in $(seq 1 ${{ inputs.nicCount }}); do
+          nic_name="${{ inputs.nicNames }}"
+          if [ -z "$nic_name" ]; then
+            nic_name="${{ inputs.vmName }}-nic-$(printf "%02d" $i)"
+          fi
+          echo "terraform import 'azurerm_network_interface.import[\"$nic_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Network/networkInterfaces/$nic_name" >> import_commands.txt
+        done
+
+        # For OS disk import
+        os_disk_name="${{ inputs.osDiskName }}"
+        if [ -z "$os_disk_name" ]; then
+          os_disk_name="${{ inputs.vmName }}-disk-os"
+        fi
+        echo "terraform import 'azurerm_managed_disk.os_disk' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$os_disk_name" >> import_commands.txt
+
+        # For data disk imports
+        if [ "${{ inputs.dataDiskCount }}" -gt "0" ]; then
+          IFS=',' read -ra disk_names <<< "${{ inputs.dataDiskNames }}"
+          if [ ${#disk_names[@]} -eq 0 ]; then
+            # Generate default disk names
+            for i in $(seq 0 $((${{ inputs.dataDiskCount }}-1))); do
+              disk_name="${{ inputs.vmName }}-data_disk-$i"
+              echo "terraform import 'azurerm_managed_disk.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name" >> import_commands.txt
+              echo "terraform import 'azurerm_virtual_machine_data_disk_attachment.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}|/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name|$i" >> import_commands.txt
+            done
+          else
+            # Use provided disk names
+            for i in "${!disk_names[@]}"; do
+              disk_name="${disk_names[$i]}"
+              if [ ! -z "$disk_name" ]; then
+                echo "terraform import 'azurerm_managed_disk.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name" >> import_commands.txt
+                echo "terraform import 'azurerm_virtual_machine_data_disk_attachment.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}|/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name|$i" >> import_commands.txt
+              fi
+            done
+          fi
+        fi
 
         echo "Import commands:"
         cat import_commands.txt
