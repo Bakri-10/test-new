@@ -181,13 +181,22 @@ jobs:
         echo "terraform import azurerm_windows_virtual_machine.import ${vm_id}" > import_commands.txt
 
         # For NIC imports
-        for i in $(seq 1 ${{ inputs.nicCount }}); do
-          nic_name="${{ inputs.nicNames }}"
-          if [ -z "$nic_name" ]; then
+        if [ ! -z "${{ inputs.nicNames }}" ]; then
+          # Handle multiple NICs with comma separation
+          IFS=',' read -ra nic_names <<< "${{ inputs.nicNames }}"
+          for i in "${!nic_names[@]}"; do
+            nic_name="${nic_names[$i]}"
+            if [ ! -z "$nic_name" ]; then
+              echo "terraform import 'azurerm_network_interface.import[\"$nic_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Network/networkInterfaces/$nic_name" >> import_commands.txt
+            fi
+          done
+        else
+          # Use default naming for NICs
+          for i in $(seq 1 ${{ inputs.nicCount }}); do
             nic_name="${{ inputs.vmName }}-nic-$(printf "%02d" $i)"
-          fi
-          echo "terraform import 'azurerm_network_interface.import[\"$nic_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Network/networkInterfaces/$nic_name" >> import_commands.txt
-        done
+            echo "terraform import 'azurerm_network_interface.import[\"$nic_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Network/networkInterfaces/$nic_name" >> import_commands.txt
+          done
+        fi
 
         # For OS disk import
         os_disk_name="${{ inputs.osDiskName }}"
@@ -230,6 +239,17 @@ jobs:
         cd ${{ env.ROOT_PATH }}
         echo "Executing import commands..."
 
+        # Define environment variables used by Terraform
+        export TF_VAR_location="${{ inputs.location }}"
+        export TF_VAR_vm_name="${{ inputs.vmName }}"
+        export TF_VAR_resource_group_name="${{ inputs.resourceGroupName }}"
+        export TF_VAR_vm_size="${{ inputs.vmSize }}"
+        export TF_VAR_nic_count="${{ inputs.nicCount }}"
+        export TF_VAR_nic_names="${{ env.nic_names }}"
+        export TF_VAR_os_disk_name="${{ inputs.osDiskName }}"
+        export TF_VAR_data_disk_count="${{ inputs.dataDiskCount }}"
+        export TF_VAR_data_disk_names="${{ env.data_disk_names }}"
+
         # Ensure terraform is in PATH
         if ! command -v terraform &> /dev/null; then
           echo "Error: terraform not found. Verify it was installed correctly."
@@ -250,16 +270,6 @@ jobs:
         done < import_commands.txt
 
         echo "Import completed!"
-      env:
-        TF_VAR_location: "${{ inputs.location }}"
-        TF_VAR_vm_name: "${{ inputs.vmName }}"
-        TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
-        TF_VAR_vm_size: "${{ inputs.vmSize }}"
-        TF_VAR_nic_count: "${{ inputs.nicCount }}"
-        TF_VAR_nic_names: ${{ env.nic_names }}
-        TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
-        TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
-        TF_VAR_data_disk_names: ${{ env.data_disk_names }}
 
     - name: "Generate Terraform State"
       if: ${{ !inputs.generateOnly && success() }}
