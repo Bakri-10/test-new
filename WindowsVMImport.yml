@@ -15,6 +15,10 @@ on:
         type: string
         required: true
         description: "Name of the VM to import"
+      purpose:
+        type: string
+        required: true
+        description: "Purpose identifier for the VM (used for state file naming)"
       resourceGroupName:
         type: string
         required: true
@@ -39,11 +43,6 @@ on:
         required: false
         description: "Name of the OS disk"
         default: ""
-      dataDiskCount:
-        type: string
-        required: false
-        description: "Number of data disks attached to the VM"
-        default: "0"
       dataDiskNames:
         type: string
         required: false
@@ -98,17 +97,18 @@ jobs:
           echo "Using provided NIC name: ${{ inputs.nicNames }}"
         fi
 
-        # Process data disk names
-        if [ "${{ inputs.dataDiskCount }}" -eq "0" ]; then
-          # When data disk count is 0, no data disks
-          echo "No data disks will be imported"
-        elif [ ! -z "${{ inputs.dataDiskNames }}" ]; then
-          # Pass the disk names directly to Terraform
+        # Process data disk names and calculate count from them
+        if [ ! -z "${{ inputs.dataDiskNames }}" ]; then
+          # Count the number of data disks by counting commas + 1
+          DISK_COUNT=$(echo "${{ inputs.dataDiskNames }}" | tr -cd ',' | wc -c)
+          DISK_COUNT=$((DISK_COUNT + 1))
+          echo "data_disk_count=${DISK_COUNT}" >> $GITHUB_ENV
           echo "data_disk_names=${{ inputs.dataDiskNames }}" >> $GITHUB_ENV
-          echo "Using provided data disk names: ${{ inputs.dataDiskNames }}"
+          echo "Using provided data disk names: ${{ inputs.dataDiskNames }}, Count: ${DISK_COUNT}"
         else
-          # Default naming for data disks
-          echo "Using default naming for data disks"
+          # No data disks
+          echo "data_disk_count=0" >> $GITHUB_ENV
+          echo "No data disks will be imported"
         fi
 
     - name: Az login
@@ -137,9 +137,9 @@ jobs:
         TF_VAR_nic_count: "${{ inputs.nicCount }}"
         TF_VAR_nic_names: ${{ env.nic_names }}
         TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
-        TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
+        TF_VAR_data_disk_count: "${{ env.data_disk_count }}"
         TF_VAR_data_disk_names: ${{ env.data_disk_names }}
-        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.vmName }}-import.tfstate"'
+        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=vm-${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate"'
 
     - name: "Terraform Plan - Generate Import Commands"
       id: terraform_plan
@@ -157,7 +157,7 @@ jobs:
         TF_VAR_nic_count: "${{ inputs.nicCount }}"
         TF_VAR_nic_names: ${{ env.nic_names }}
         TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
-        TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
+        TF_VAR_data_disk_count: "${{ env.data_disk_count }}"
         TF_VAR_data_disk_names: ${{ env.data_disk_names }}
 
     - name: "Extract Import Commands"
@@ -206,11 +206,11 @@ jobs:
 
 
         # For data disk imports
-        if [ "${{ inputs.dataDiskCount }}" -gt "0" ]; then
+        if [ "${{ env.data_disk_count }}" -gt "0" ]; then
           IFS=',' read -ra disk_names <<< "${{ inputs.dataDiskNames }}"
           if [ ${#disk_names[@]} -eq 0 ]; then
             # Generate default disk names
-            for i in $(seq 0 $((${{ inputs.dataDiskCount }}-1))); do
+            for i in $(seq 0 $((${{ env.data_disk_count }}-1))); do
               disk_name="${{ inputs.vmName }}-data_disk-$i"
               echo "terraform import 'azurerm_managed_disk.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name" >> import_commands.txt
               echo "terraform import 'azurerm_virtual_machine_data_disk_attachment.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}|/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name|$i" >> import_commands.txt
@@ -247,7 +247,7 @@ jobs:
         export TF_VAR_nic_count="${{ inputs.nicCount }}"
         export TF_VAR_nic_names="${{ env.nic_names }}"
         export TF_VAR_os_disk_name="${{ inputs.osDiskName }}"
-        export TF_VAR_data_disk_count="${{ inputs.dataDiskCount }}"
+        export TF_VAR_data_disk_count="${{ env.data_disk_count }}"
         export TF_VAR_data_disk_names="${{ env.data_disk_names }}"
 
         # Ensure terraform is in PATH
@@ -288,7 +288,7 @@ jobs:
         TF_VAR_nic_count: "${{ inputs.nicCount }}"
         TF_VAR_nic_names: ${{ env.nic_names }}
         TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
-        TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
+        TF_VAR_data_disk_count: "${{ env.data_disk_count }}"
         TF_VAR_data_disk_names: ${{ env.data_disk_names }}
 
     - name: "Create import summary"
@@ -321,7 +321,7 @@ jobs:
         fi
 
         # Add data disks to summary
-        if [ "${{ inputs.dataDiskCount }}" -ne "0" ]; then
+        if [ "${{ env.data_disk_count }}" -ne "0" ]; then
           if [ ! -z "${{ inputs.dataDiskNames }}" ]; then
             # Handle multiple data disks with comma separation
             echo "${{ inputs.dataDiskNames }}" | tr ',' '\n' | while read -r disk_name; do
@@ -330,14 +330,14 @@ jobs:
               fi
             done
           else
-            for i in $(seq 0 $((${{ inputs.dataDiskCount }}-1))); do
+            for i in $(seq 0 $((${{ env.data_disk_count }}-1))); do
               echo "| Data Disk | ${{ inputs.vmName }}-data_disk-$i | Imported |" >> import_summary.md
             done
           fi
         fi
 
         echo "" >> import_summary.md
-        echo "Terraform state file: ${{ inputs.environment }}-${{ inputs.vmName }}-import.tfstate" >> import_summary.md
+        echo "Terraform state file: vm-${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate" >> import_summary.md
 
         cat import_summary.md
 

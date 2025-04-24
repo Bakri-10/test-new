@@ -157,12 +157,7 @@ jobs:
       diskStorageAccountType: '${{inputs.diskStorageAccountType}}'
 
   windows_vm_maintain:
-    if: (github.event.inputs.requestType == 'Update (Data Disk)' || 
-         github.event.inputs.requestType == 'Update (OS Disk)' || 
-         github.event.inputs.requestType == 'Update VM SKU' ||
-         github.event.inputs.requestType == 'Start VM' ||
-         github.event.inputs.requestType == 'Stop VM' ||
-         github.event.inputs.requestType == 'Restart VM')
+    if: (github.event.inputs.requestType == 'Update (Data Disk)' || github.event.inputs.requestType == 'Update (OS Disk)' || github.event.inputs.requestType == 'Update VM SKU' || github.event.inputs.requestType == 'Start VM' || github.event.inputs.requestType == 'Stop VM' || github.event.inputs.requestType == 'Restart VM')
     name: 'Maintain Windows VM ${{inputs.purpose}}'
     uses: ./.github/workflows/WindowsVMMaintain.yml
     needs: parse_subnet_info
@@ -171,6 +166,8 @@ jobs:
       ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
       ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
       ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
     with:
       requestType: '${{inputs.requestType}}'
       environment: '${{inputs.environment}}'
@@ -203,4 +200,4 @@ jobs:
       projectou: '${{ inputs.projectou }}'
       subnetInfo: '${{inputs.subnetInfo}}'
       diskSizeGB: '${{ inputs.diskSizeGB }}'
-      diskStorageAccountType: '${{ inputs.diskStorageAccountType }}' 
+      diskStorageAccountType: '${{ inputs.diskStorageAccountType }}'

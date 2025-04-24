@@ -36,6 +36,10 @@ on:
         required: true
       ARM_TENANT_ID:
         required: true
+      BACKEND_STORAGE_ACCOUNT:
+        required: true
+      BACKEND_RESOURCE_GROUP:
+        required: true
 
 permissions:
   contents: read
@@ -56,7 +60,7 @@ jobs:
         shell: bash
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Az login
       uses: azure/login@v2
       with:
@@ -78,6 +82,7 @@ jobs:
         TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
         TF_VAR_disk_size_gb: '${{inputs.diskSizeGB}}'
         TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
+        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=vm-${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate"'
 
     - name: 'Terraform Plan'
       uses: hashicorp/terraform-github-actions@master
@@ -123,4 +128,4 @@ jobs:
         TF_VAR_purpose: '${{inputs.purpose}}'
         TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
         TF_VAR_disk_size_gb: '${{inputs.diskSizeGB}}'
-        TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}' 
+        TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'

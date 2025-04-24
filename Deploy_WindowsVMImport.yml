@@ -25,6 +25,10 @@ on:
         type: string
         required: true
         description: Name of the VM to import
+      purpose:
+        type: string
+        required: true
+        description: Purpose identifier for the VM (used for state file naming)
       resourceGroupName:
         type: string
         required: true
@@ -44,15 +48,10 @@ on:
         required: false
         description: Name of the OS disk
         default: ""
-      dataDiskCount:
-        type: string
-        required: false
-        description: Number of data disks (default 0)
-        default: "0"
       dataDiskNames:
         type: string
         required: false
-        description: "Names of data disks as comma-separated values (e.g. 'disk1,disk2,disk3'). Number should match dataDiskCount."
+        description: "Names of data disks as comma-separated values (e.g. 'disk1,disk2,disk3'). Number of disks will be derived from this list."
         default: ""
       generateOnly:
         type: boolean
@@ -80,8 +79,8 @@ jobs:
           exit 1
         fi
 
-        if [[ "${{ inputs.dataDiskCount }}" -lt 0 ]]; then
-          echo "::error::Data Disk Count must be 0 or greater"
+        if [[ -z "${{ inputs.purpose }}" ]]; then
+          echo "::error::Purpose is required"
           exit 1
         fi
 
@@ -98,16 +97,10 @@ jobs:
         fi
 
         # Process and validate data disk names
-        if [ "${{ inputs.dataDiskCount }}" -eq "0" ]; then
-          # No data disks to process
-          echo "No data disks will be imported"
-        elif [ ! -z "${{ inputs.dataDiskNames }}" ]; then
+        if [ ! -z "${{ inputs.dataDiskNames }}" ]; then
           # Count how many disks in the comma-separated list
           disk_count=$(echo "${{ inputs.dataDiskNames }}" | tr ',' '\n' | wc -l)
-          
-          if [[ $disk_count -ne ${{ inputs.dataDiskCount }} ]]; then
-            echo "::warning::Number of data disk names ($disk_count) does not match data disk count (${{ inputs.dataDiskCount }}). Default naming may be used."
-          fi
+          echo "Found $disk_count data disks in the input"
         fi
 
         echo "All validations passed!"
@@ -127,11 +120,11 @@ jobs:
       environment: ${{ inputs.environment }}
       location: ${{ inputs.location }}
       vmName: ${{ inputs.vmName }}
+      purpose: ${{ inputs.purpose }}
       resourceGroupName: ${{ inputs.resourceGroupName }}
       vmSize: ${{ inputs.vmSize }}
       nicCount: ${{ needs.validate-inputs.outputs.nic_count }}
       nicNames: ${{ needs.validate-inputs.outputs.nic_name || inputs.nicNames }}
       osDiskName: ${{ inputs.osDiskName }}
-      dataDiskCount: ${{ inputs.dataDiskCount }}
       dataDiskNames: ${{ inputs.dataDiskNames }}
       generateOnly: ${{ inputs.generateOnly }}

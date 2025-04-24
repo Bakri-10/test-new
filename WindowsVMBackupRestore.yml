@@ -50,6 +50,10 @@ on:
         required: true
       ARM_TENANT_ID:
         required: true
+      BACKEND_STORAGE_ACCOUNT:
+        required: true
+      BACKEND_RESOURCE_GROUP:
+        required: true
 
 permissions:
   contents: read
@@ -93,6 +97,7 @@ jobs:
         TF_VAR_recovery_vault_rg: '${{inputs.recoveryVaultRG}}'
         TF_VAR_backup_policy_name: '${{inputs.backupPolicyName}}'
         TF_VAR_recovery_point_id: '${{inputs.recoveryPointId}}'
+        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=vm-${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate"'
 
     - name: 'Terraform Plan - Backup/Restore Operations'
       uses: hashicorp/terraform-github-actions@master
