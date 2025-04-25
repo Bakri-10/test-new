@@ -139,7 +139,7 @@ jobs:
         TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
         TF_VAR_data_disk_count: "${{ env.data_disk_count }}"
         TF_VAR_data_disk_names: ${{ env.data_disk_names }}
-        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=vm-${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate"'
+        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=vm-${{ inputs.environment }}-${{ inputs.vmName }}-terraform.tfstate"'
 
     - name: "Terraform Plan - Generate Import Commands"
       id: terraform_plan
@@ -337,7 +337,7 @@ jobs:
         fi
 
         echo "" >> import_summary.md
-        echo "Terraform state file: vm-${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate" >> import_summary.md
+        echo "Terraform state file: vm-${{ inputs.environment }}-${{ inputs.vmName }}-terraform.tfstate" >> import_summary.md
 
         cat import_summary.md
 

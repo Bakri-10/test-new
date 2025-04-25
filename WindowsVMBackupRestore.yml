@@ -81,6 +81,48 @@ jobs:
         creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
         enable-AzPSSession: true
 
+    - name: Generate VM Name for State File
+      run: |
+        # Generate VM name for state file using the same pattern as in Terraform
+        if [[ "${{ inputs.purpose }}" == *"-"* ]]; then
+          # For existing VMs with hyphen in the name
+          VM_NAME_FOR_STATE="${{ inputs.purpose }}"
+        else
+          # For new VMs, construct the name
+          if [[ "${{ inputs.purpose }}" == *"/"* ]]; then
+            VM_ROLE=$(echo "${{ inputs.purpose }}" | cut -d'/' -f1)
+            VM_SEQUENCE=$(echo "${{ inputs.purpose }}" | cut -d'/' -f2)
+          else
+            VM_ROLE="${{ inputs.purpose }}"
+            VM_SEQUENCE="nnn"
+          fi
+          
+          # Map location to code
+          case "${{ inputs.location }}" in
+            "eastus2") LOCATION_CODE="EUS2" ;;
+            "uksouth") LOCATION_CODE="UKS" ;;
+            "centralus") LOCATION_CODE="CUS" ;;
+            "ukwest") LOCATION_CODE="UKW" ;;
+            *) LOCATION_CODE="LOC" ;;
+          esac
+          
+          # Map environment to code
+          case "${{ inputs.environment }}" in
+            "DEV") ENV_CODE="D" ;;
+            "UAT") ENV_CODE="U" ;;
+            "QA") ENV_CODE="Q" ;;
+            "PROD") ENV_CODE="P" ;;
+            *) ENV_CODE="X" ;;
+          esac
+          
+          VM_NAME_FOR_STATE="AZ${LOCATION_CODE}-${VM_ROLE}${ENV_CODE}${VM_SEQUENCE}"
+        fi
+
+        # Convert to uppercase for consistency
+        VM_NAME_FOR_STATE=$(echo "$VM_NAME_FOR_STATE" | tr '[:lower:]' '[:upper:]')
+        echo "Generated VM name for state file: $VM_NAME_FOR_STATE"
+        echo "VM_NAME_FOR_STATE=$VM_NAME_FOR_STATE" >> $GITHUB_ENV
+
     - name: 'Terraform Initialize'
       uses: hashicorp/terraform-github-actions@master
       with:
@@ -97,7 +139,7 @@ jobs:
         TF_VAR_recovery_vault_rg: '${{inputs.recoveryVaultRG}}'
         TF_VAR_backup_policy_name: '${{inputs.backupPolicyName}}'
         TF_VAR_recovery_point_id: '${{inputs.recoveryPointId}}'
-        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=vm-${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate"'
+        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=vm-${{ inputs.environment }}-${{ env.VM_NAME_FOR_STATE }}-terraform.tfstate"'
 
     - name: 'Terraform Plan - Backup/Restore Operations'
       uses: hashicorp/terraform-github-actions@master

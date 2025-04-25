@@ -106,7 +106,48 @@ jobs:
         echo "subnet1=${SUBNET1}" >> $GITHUB_OUTPUT
         echo "subnet2=${SUBNET2}" >> $GITHUB_OUTPUT
     - name: Terraform Initialize
-      run: terraform init -backend-config="resource_group_name=$BACKEND_RESOURCE_GROUP" -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" -backend-config="container_name=terraform-state" -backend-config="key=vm-${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate" -input=false
+      run: |
+        # Generate VM name for state file using the same pattern as in Terraform
+        if [[ "${{ inputs.purpose }}" == *"-"* ]]; then
+          # For existing VMs with hyphen in the name
+          VM_NAME_FOR_STATE="${{ inputs.purpose }}"
+        else
+          # For new VMs, construct the name
+          if [[ "${{ inputs.purpose }}" == *"/"* ]]; then
+            VM_ROLE=$(echo "${{ inputs.purpose }}" | cut -d'/' -f1)
+            VM_SEQUENCE=$(echo "${{ inputs.purpose }}" | cut -d'/' -f2)
+          else
+            VM_ROLE="${{ inputs.purpose }}"
+            VM_SEQUENCE="nnn"
+          fi
+          
+          # Map location to code
+          case "${{ inputs.location }}" in
+            "eastus2") LOCATION_CODE="EUS2" ;;
+            "uksouth") LOCATION_CODE="UKS" ;;
+            "centralus") LOCATION_CODE="CUS" ;;
+            "ukwest") LOCATION_CODE="UKW" ;;
+            *) LOCATION_CODE="LOC" ;;
+          esac
+          
+          # Map environment to code
+          case "${{ inputs.environment }}" in
+            "DEV") ENV_CODE="D" ;;
+            "UAT") ENV_CODE="U" ;;
+            "QA") ENV_CODE="Q" ;;
+            "PROD") ENV_CODE="P" ;;
+            *) ENV_CODE="X" ;;
+          esac
+          
+          VM_NAME_FOR_STATE="AZ${LOCATION_CODE}-${VM_ROLE}${ENV_CODE}${VM_SEQUENCE}"
+        fi
+
+        # Convert to uppercase for consistency
+        VM_NAME_FOR_STATE=$(echo "$VM_NAME_FOR_STATE" | tr '[:lower:]' '[:upper:]')
+        echo "Generated VM name for state file: $VM_NAME_FOR_STATE"
+
+        # Initialize Terraform with the generated VM name in the state file
+        terraform init -backend-config="resource_group_name=$BACKEND_RESOURCE_GROUP" -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" -backend-config="container_name=terraform-state" -backend-config="key=vm-${{ inputs.environment }}-${VM_NAME_FOR_STATE}-terraform.tfstate" -input=false
       env:
         TF_VAR_request_type: '${{inputs.requestType}}'
         TF_VAR_location: '${{inputs.location}}'
