@@ -172,9 +172,8 @@ module "availability_set_main" {
   providers = {
     azurerm.adt = azurerm.adt
   }
-  count = 0 # Not creating any new resources, just for state reference
-  location = ""
-  naming = {}
+  location = local.naming.location
+  naming = local.naming
   availability_set_data = []
 }
 
@@ -183,8 +182,7 @@ module "managed_data_disk" {
   providers = {
     azurerm.adt = azurerm.adt
   }
-  count = 0 # Not creating any new resources, just for state reference
-  location = ""
+  location = local.naming.location
   managed_disk_data = []
 }
 
@@ -287,65 +285,71 @@ resource "azapi_update_resource" "vm_vmSize" {
  }
 
 # Reference to original resources from create
-resource "azurerm_network_interface" "nic1" {
-  count = 0 # Just for state reference
+# Instead of empty resources with count=0, we'll use the proper "import" block
+# in actual usage to reference existing resources
+
+# Empty placeholder for VM
+resource "azurerm_windows_virtual_machine" "main" {
   provider = azurerm.adt
-  name = ""
-  location = ""
+  for_each = {}
+  name                = ""
+  location            = ""
+  resource_group_name = ""
+  size                = ""
+  admin_username      = ""
+  admin_password      = ""
+  network_interface_ids = []
+  os_disk {
+    caching           = ""
+    storage_account_type = ""
+  }
+}
+
+# Empty placeholder for NICs
+resource "azurerm_network_interface" "nic1" {
+  provider = azurerm.adt
+  for_each = {}
+  name                = ""
+  location            = ""
   resource_group_name = ""
   ip_configuration {
-    name = ""
-    subnet_id = ""
+    name                          = ""
+    subnet_id                     = ""
     private_ip_address_allocation = ""
   }
 }
 
 resource "azurerm_network_interface" "nic2" {
-  count = 0 # Just for state reference
   provider = azurerm.adt
-  name = ""
-  location = ""
+  for_each = {}
+  name                = ""
+  location            = ""
   resource_group_name = ""
   ip_configuration {
-    name = ""
-    subnet_id = ""
+    name                          = ""
+    subnet_id                     = ""
     private_ip_address_allocation = ""
   }
 }
 
-resource "azurerm_windows_virtual_machine" "main" {
-  count = 0 # Just for state reference
-  provider = azurerm.adt
-  name = ""
-  location = ""
-  resource_group_name = ""
-  size = ""
-  admin_username = ""
-  admin_password = ""
-  network_interface_ids = []
-  os_disk {
-    caching = ""
-    storage_account_type = ""
-  }
-}
-
+# Empty placeholder for extensions
 resource "azurerm_virtual_machine_extension" "custom_extensions" {
-  count = 0 # Just for state reference
   provider = azurerm.adt
-  name = ""
-  virtual_machine_id = ""
-  publisher = ""
-  type = ""
+  for_each = {}
+  name                 = ""
+  virtual_machine_id   = ""
+  publisher            = ""
+  type                 = ""
   type_handler_version = ""
 }
 
 resource "azurerm_virtual_machine_extension" "domain_join" {
-  count = 0 # Just for state reference
   provider = azurerm.adt
-  name = ""
-  virtual_machine_id = ""
-  publisher = ""
-  type = ""
+  for_each = {}
+  name                 = ""
+  virtual_machine_id   = ""
+  publisher            = ""
+  type                 = ""
   type_handler_version = ""
 }
 
