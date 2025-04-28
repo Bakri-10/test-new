@@ -166,7 +166,8 @@ data "azurerm_resources" "protected_vm" {
   required_tags       = {}
 }
 
-# References to modules used in the create process (to prevent orphan resources)
+# Module references - included for state file purposes only
+# Do not use count or for_each on these modules!
 module "availability_set_main" {
   source = "../availability-set"
   providers = {
@@ -283,75 +284,6 @@ resource "azapi_update_resource" "vm_vmSize" {
     }
    }
  }
-
-# Reference to original resources from create
-# Instead of empty resources with count=0, we'll use the proper "import" block
-# in actual usage to reference existing resources
-
-# Empty placeholder for VM
-resource "azurerm_windows_virtual_machine" "main" {
-  provider = azurerm.adt
-  for_each = {}
-  name                = ""
-  location            = ""
-  resource_group_name = ""
-  size                = ""
-  admin_username      = ""
-  admin_password      = ""
-  network_interface_ids = []
-  os_disk {
-    caching           = ""
-    storage_account_type = ""
-  }
-}
-
-# Empty placeholder for NICs
-resource "azurerm_network_interface" "nic1" {
-  provider = azurerm.adt
-  for_each = {}
-  name                = ""
-  location            = ""
-  resource_group_name = ""
-  ip_configuration {
-    name                          = ""
-    subnet_id                     = ""
-    private_ip_address_allocation = ""
-  }
-}
-
-resource "azurerm_network_interface" "nic2" {
-  provider = azurerm.adt
-  for_each = {}
-  name                = ""
-  location            = ""
-  resource_group_name = ""
-  ip_configuration {
-    name                          = ""
-    subnet_id                     = ""
-    private_ip_address_allocation = ""
-  }
-}
-
-# Empty placeholder for extensions
-resource "azurerm_virtual_machine_extension" "custom_extensions" {
-  provider = azurerm.adt
-  for_each = {}
-  name                 = ""
-  virtual_machine_id   = ""
-  publisher            = ""
-  type                 = ""
-  type_handler_version = ""
-}
-
-resource "azurerm_virtual_machine_extension" "domain_join" {
-  provider = azurerm.adt
-  for_each = {}
-  name                 = ""
-  virtual_machine_id   = ""
-  publisher            = ""
-  type                 = ""
-  type_handler_version = ""
-}
 
 # Backup Operations
 # Enable VM Backup
