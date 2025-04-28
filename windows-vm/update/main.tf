@@ -20,6 +20,12 @@ terraform {
 provider "azurerm" {
   features {}
  }
+
+provider "azurerm" {
+  alias   = "adt"
+  features {}
+}
+
 provider "azapi" {
   # Configuration options
  }
