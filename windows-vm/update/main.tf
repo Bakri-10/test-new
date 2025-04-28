@@ -3,6 +3,9 @@ terraform {
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "3.101.0"
+      configuration_aliases = [ 
+          azurerm.adt
+       ]
      }
     azapi = {
       source = "Azure/azapi"
@@ -22,9 +25,29 @@ provider "azurerm" {
  }
 
 provider "azurerm" {
-  alias   = "adt"
+  alias                               = "adt"
+  features {
+    virtual_machine {
+      delete_os_disk_on_deletion      = true
+      graceful_shutdown               = false
+      # skip_shutdown_and_force_delete  = false (Preview Feature)
+    }
+  }
+ }
+
+provider "azurerm" {
+  alias                       = "uk_hub"
+  skip_provider_registration  = true
+  subscription_id             = "0c2f7215-bcfa-4e58-898b-4fe4d4673a37"
   features {}
-}
+ }
+
+provider "azurerm" {
+  alias                       = "us_hub"
+  skip_provider_registration  = true
+  subscription_id             = "74d15849-ba7b-4be6-8ba1-330a178ba88d"
+  features {}
+ }
 
 provider "azapi" {
   # Configuration options
@@ -102,15 +125,20 @@ locals {
  }
 #
 data "azurerm_managed_disk" "data_disk" {
+  provider            = azurerm.adt
   name                = local.dd_name
   resource_group_name = local.rg_name
  }
 data "azurerm_managed_disk" "os_disk" {
+  provider            = azurerm.adt
   name                = local.osd_name
   resource_group_name = local.rg_name
  }
-data "azurerm_subscription" "current" {}
+data "azurerm_subscription" "current" {
+  provider = azurerm.adt
+}
 data "azurerm_virtual_machine" "maintaining" {
+  provider            = azurerm.adt
   name                = local.vm_name
   resource_group_name = local.rg_name
  }
@@ -136,6 +164,28 @@ data "azurerm_resources" "protected_vm" {
   resource_group_name = local.rsv_resource_group
   type                = "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems"
   required_tags       = {}
+}
+
+# References to modules used in the create process (to prevent orphan resources)
+module "availability_set_main" {
+  source = "../availability-set"
+  providers = {
+    azurerm.adt = azurerm.adt
+  }
+  count = 0 # Not creating any new resources, just for state reference
+  location = ""
+  naming = {}
+  availability_set_data = []
+}
+
+module "managed_data_disk" {
+  source = "../managed-disk"
+  providers = {
+    azurerm.adt = azurerm.adt
+  }
+  count = 0 # Not creating any new resources, just for state reference
+  location = ""
+  managed_disk_data = []
 }
 
 # VM Operations
@@ -235,6 +285,69 @@ resource "azapi_update_resource" "vm_vmSize" {
     }
    }
  }
+
+# Reference to original resources from create
+resource "azurerm_network_interface" "nic1" {
+  count = 0 # Just for state reference
+  provider = azurerm.adt
+  name = ""
+  location = ""
+  resource_group_name = ""
+  ip_configuration {
+    name = ""
+    subnet_id = ""
+    private_ip_address_allocation = ""
+  }
+}
+
+resource "azurerm_network_interface" "nic2" {
+  count = 0 # Just for state reference
+  provider = azurerm.adt
+  name = ""
+  location = ""
+  resource_group_name = ""
+  ip_configuration {
+    name = ""
+    subnet_id = ""
+    private_ip_address_allocation = ""
+  }
+}
+
+resource "azurerm_windows_virtual_machine" "main" {
+  count = 0 # Just for state reference
+  provider = azurerm.adt
+  name = ""
+  location = ""
+  resource_group_name = ""
+  size = ""
+  admin_username = ""
+  admin_password = ""
+  network_interface_ids = []
+  os_disk {
+    caching = ""
+    storage_account_type = ""
+  }
+}
+
+resource "azurerm_virtual_machine_extension" "custom_extensions" {
+  count = 0 # Just for state reference
+  provider = azurerm.adt
+  name = ""
+  virtual_machine_id = ""
+  publisher = ""
+  type = ""
+  type_handler_version = ""
+}
+
+resource "azurerm_virtual_machine_extension" "domain_join" {
+  count = 0 # Just for state reference
+  provider = azurerm.adt
+  name = ""
+  virtual_machine_id = ""
+  publisher = ""
+  type = ""
+  type_handler_version = ""
+}
 
 # Backup Operations
 # Enable VM Backup
