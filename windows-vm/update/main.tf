@@ -117,6 +117,17 @@ locals {
   vm_sequence                               = (strcontains(var.purpose, "/") ? 
                                                 split("/", var.purpose)[1] :
                                                 "nnn")
+  
+  # Derived variable values for avset and disk modules                                              
+  availability_set_name       = join("-", [
+                                local.naming.bu,
+                                local.naming.environment,
+                                local.naming.loc_abbreviation,
+                                join(".", [ local.vm_role,
+                                           local.vm_sequence]),
+                                "avail",
+                                local.naming.nn]
+                              )
                                                 
   # RSV related variables
   rsv_name                                  = var.recovery_vault_name
@@ -166,25 +177,48 @@ data "azurerm_resources" "protected_vm" {
   required_tags       = {}
 }
 
-# Module references - included for state file purposes only
-# Do not use count or for_each on these modules!
+# Module declarations - imported from original create workflow but not actually creating resources
+# These are needed for proper state file reference only
+# DO NOT MODIFY these module declarations as they must match the structure in the create workflow
+
+# IMPORTANT: We set do_update = false to prevent any changes to existing resources
 module "availability_set_main" {
-  source = "../availability-set"
+  source = "../../availability-set"
   providers = {
     azurerm.adt = azurerm.adt
   }
   location = local.naming.location
   naming = local.naming
-  availability_set_data = []
+  availability_set_data = [
+    {
+      availability_set_name = local.availability_set_name
+      do_update = false # Important: set to false to prevent changes
+      platform_fault_domain_count = "2"
+      platform_update_domain_count = "5"
+      proximity_placement_group_id = ""
+      purpose = local.vm_role
+      purpose_rg = local.rg_name
+    }
+  ]
 }
 
+# IMPORTANT: We set disk_count = 0 to prevent any changes to existing disks
 module "managed_data_disk" {
-  source = "../managed-disk"
+  source = "../../managed-disk"
   providers = {
     azurerm.adt = azurerm.adt
   }
   location = local.naming.location
-  managed_disk_data = []
+  managed_disk_data = [
+    {
+      disk_count = "0" # Important: set to 0 to prevent changes
+      disk_size_gb = "32"
+      parent_name = local.vm_name
+      resource_group_name = local.rg_name
+      storage_account_type = "Standard_LRS"
+      virtual_machine_id = data.azurerm_virtual_machine.maintaining.id
+    }
+  ]
 }
 
 # VM Operations
