@@ -1,0 +1,348 @@
+name: "zWindows VM Import (Call)"
+run-name: "VM Import: ${{ github.actor }} - ${{ inputs.vmName }}"
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+        description: "Deployment environment (DEV, UAT, QA, PROD)"
+      location:
+        type: string
+        required: true
+        description: "Location of the VM resources"
+      vmName:
+        type: string
+        required: true
+        description: "Name of the VM to import"
+      resourceGroupName:
+        type: string
+        required: true
+        description: "Resource group containing the VM"
+      vmSize:
+        type: string
+        required: false
+        description: "Size of the VM (e.g. Standard_D2s_v3)"
+        default: "Standard_D2s_v3"
+      nicCount:
+        type: string
+        required: false
+        description: "Number of network interfaces attached to the VM"
+        default: "1"
+      nicNames:
+        type: string
+        required: false
+        description: "Name of the NIC (for single NIC) or JSON array for multiple NICs"
+        default: ""
+      osDiskName:
+        type: string
+        required: false
+        description: "Name of the OS disk"
+        default: ""
+      dataDiskCount:
+        type: string
+        required: false
+        description: "Number of data disks attached to the VM"
+        default: "0"
+      dataDiskNames:
+        type: string
+        required: false
+        description: "JSON array of data disk names (e.g. '[\"disk1\",\"disk2\"]')"
+        default: ""
+      generateOnly:
+        type: boolean
+        required: false
+        description: "Generate import commands without executing them"
+        default: false
+    secrets:
+      ARM_CLIENT_ID:
+        required: true
+      ARM_CLIENT_SECRET:
+        required: true
+      ARM_SUBSCRIPTION_ID:
+        required: true
+      ARM_TENANT_ID:
+        required: true
+      BACKEND_STORAGE_ACCOUNT:
+        required: true
+      BACKEND_RESOURCE_GROUP:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  wvm-import:
+    name: "VM Import Operations"
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ROOT_PATH: "Azure/windows-vm/import"
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Parse Resource Names
+      id: parse_names
+      run: |
+        # Process NIC names - Just pass the input directly to Terraform
+        if [ ! -z "${{ inputs.nicNames }}" ]; then
+          # Use the input as is, Terraform will handle it
+          echo "nic_names=${{ inputs.nicNames }}" >> $GITHUB_ENV
+          echo "Using provided NIC name: ${{ inputs.nicNames }}"
+        fi
+
+        # Process data disk names
+        if [ "${{ inputs.dataDiskCount }}" -eq "0" ]; then
+          # When data disk count is 0, no data disks
+          echo "No data disks will be imported"
+        elif [ ! -z "${{ inputs.dataDiskNames }}" ]; then
+          # Pass the disk names directly to Terraform
+          echo "data_disk_names=${{ inputs.dataDiskNames }}" >> $GITHUB_ENV
+          echo "Using provided data disk names: ${{ inputs.dataDiskNames }}"
+        else
+          # Default naming for data disks
+          echo "Using default naming for data disks"
+        fi
+
+    - name: Az login
+      uses: azure/login@v2
+      with:
+        creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
+        enable-AzPSSession: true
+
+    - name: "Setup Terraform"
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "latest"
+
+    - name: "Terraform Initialize"
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: "init"
+        tf_actions_working_dir: ${{ env.ROOT_PATH }}
+        tf_actions_comment: true
+      env:
+        TF_VAR_location: "${{ inputs.location }}"
+        TF_VAR_vm_name: "${{ inputs.vmName }}"
+        TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
+        TF_VAR_vm_size: "${{ inputs.vmSize }}"
+        TF_VAR_nic_count: "${{ inputs.nicCount }}"
+        TF_VAR_nic_names: ${{ env.nic_names }}
+        TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
+        TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
+        TF_VAR_data_disk_names: ${{ env.data_disk_names }}
+        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.vmName }}.tfstate"'
+
+    - name: "Terraform Plan - Generate Import Commands"
+      id: terraform_plan
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: "plan"
+        tf_actions_working_dir: ${{ env.ROOT_PATH }}
+        tf_actions_comment: true
+      env:
+        TF_VAR_location: "${{ inputs.location }}"
+        TF_VAR_vm_name: "${{ inputs.vmName }}"
+        TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
+        TF_VAR_vm_size: "${{ inputs.vmSize }}"
+        TF_VAR_nic_count: "${{ inputs.nicCount }}"
+        TF_VAR_nic_names: ${{ env.nic_names }}
+        TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
+        TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
+        TF_VAR_data_disk_names: ${{ env.data_disk_names }}
+
+    - name: "Extract Import Commands"
+      id: extract_commands
+      run: |
+        cd ${{ env.ROOT_PATH }}
+        echo "Current working directory: $(pwd)"
+        echo "Directory contents:"
+        ls -la
+
+        # Debug Terraform installation
+        which terraform || echo "Terraform not found in PATH"
+        terraform version || echo "Cannot determine Terraform version"
+
+        echo "Generating import commands..."
+
+        # Make sure jq is installed
+        if ! command -v jq &> /dev/null; then
+          echo "Installing jq..."
+          sudo apt-get update && sudo apt-get install -y jq
+        fi
+
+        # Generate import commands directly without relying on terraform
+
+        # VM import command
+        vm_id="/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}"
+        echo "terraform import azurerm_windows_virtual_machine.import ${vm_id}" > import_commands.txt
+
+        # For NIC imports
+        if [ ! -z "${{ inputs.nicNames }}" ]; then
+          # Handle multiple NICs with comma separation
+          IFS=',' read -ra nic_names <<< "${{ inputs.nicNames }}"
+          for i in "${!nic_names[@]}"; do
+            nic_name="${nic_names[$i]}"
+            if [ ! -z "$nic_name" ]; then
+              echo "terraform import 'azurerm_network_interface.import[\"$nic_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Network/networkInterfaces/$nic_name" >> import_commands.txt
+            fi
+          done
+        else
+          # Use default naming for NICs
+          for i in $(seq 1 ${{ inputs.nicCount }}); do
+            nic_name="${{ inputs.vmName }}-nic-$(printf "%02d" $i)"
+            echo "terraform import 'azurerm_network_interface.import[\"$nic_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Network/networkInterfaces/$nic_name" >> import_commands.txt
+          done
+        fi
+
+
+        # For data disk imports
+        if [ "${{ inputs.dataDiskCount }}" -gt "0" ]; then
+          IFS=',' read -ra disk_names <<< "${{ inputs.dataDiskNames }}"
+          if [ ${#disk_names[@]} -eq 0 ]; then
+            # Generate default disk names
+            for i in $(seq 0 $((${{ inputs.dataDiskCount }}-1))); do
+              disk_name="${{ inputs.vmName }}-data_disk-$i"
+              echo "terraform import 'azurerm_managed_disk.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name" >> import_commands.txt
+              echo "terraform import 'azurerm_virtual_machine_data_disk_attachment.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}|/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name|$i" >> import_commands.txt
+            done
+          else
+            # Use provided disk names
+            for i in "${!disk_names[@]}"; do
+              disk_name="${disk_names[$i]}"
+              if [ ! -z "$disk_name" ]; then
+                echo "terraform import 'azurerm_managed_disk.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name" >> import_commands.txt
+                echo "terraform import 'azurerm_virtual_machine_data_disk_attachment.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}|/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name|$i" >> import_commands.txt
+              fi
+            done
+          fi
+        fi
+
+        echo "Import commands:"
+        cat import_commands.txt
+
+        # Set output using Environment Files approach
+        echo "commands_file=import_commands.txt" >> $GITHUB_OUTPUT
+
+    - name: "Execute Import Commands"
+      if: ${{ !inputs.generateOnly }}
+      run: |
+        cd ${{ env.ROOT_PATH }}
+        echo "Executing import commands..."
+
+        # Define environment variables used by Terraform
+        export TF_VAR_location="${{ inputs.location }}"
+        export TF_VAR_vm_name="${{ inputs.vmName }}"
+        export TF_VAR_resource_group_name="${{ inputs.resourceGroupName }}"
+        export TF_VAR_vm_size="${{ inputs.vmSize }}"
+        export TF_VAR_nic_count="${{ inputs.nicCount }}"
+        export TF_VAR_nic_names="${{ env.nic_names }}"
+        export TF_VAR_os_disk_name="${{ inputs.osDiskName }}"
+        export TF_VAR_data_disk_count="${{ inputs.dataDiskCount }}"
+        export TF_VAR_data_disk_names="${{ env.data_disk_names }}"
+
+        # Ensure terraform is in PATH
+        if ! command -v terraform &> /dev/null; then
+          echo "Error: terraform not found. Verify it was installed correctly."
+          exit 1
+        fi
+
+        # Execute each import command one by one
+        while IFS= read -r cmd; do
+          echo "Executing: $cmd"
+          eval "$cmd"
+          
+          # If the command fails, wait and retry once
+          if [ $? -ne 0 ]; then
+            echo "Command failed, retrying after 10 seconds..."
+            sleep 10
+            eval "$cmd"
+          fi
+        done < import_commands.txt
+
+        echo "Import completed!"
+
+    - name: "Generate Terraform State"
+      if: ${{ !inputs.generateOnly && success() }}
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: latest
+        tf_actions_subcommand: "plan"
+        tf_actions_working_dir: ${{ env.ROOT_PATH }}
+        tf_actions_comment: true
+        tf_actions_cli_options: "-out=tfplan"
+      env:
+        TF_VAR_location: "${{ inputs.location }}"
+        TF_VAR_vm_name: "${{ inputs.vmName }}"
+        TF_VAR_resource_group_name: "${{ inputs.resourceGroupName }}"
+        TF_VAR_vm_size: "${{ inputs.vmSize }}"
+        TF_VAR_nic_count: "${{ inputs.nicCount }}"
+        TF_VAR_nic_names: ${{ env.nic_names }}
+        TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
+        TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
+        TF_VAR_data_disk_names: ${{ env.data_disk_names }}
+
+    - name: "Create import summary"
+      run: |
+        echo "## VM Import Summary" > import_summary.md
+        echo "" >> import_summary.md
+        echo "| Resource Type | Name | Status |" >> import_summary.md
+        echo "|--------------|------|--------|" >> import_summary.md
+        echo "| Virtual Machine | ${{ inputs.vmName }} | Imported |" >> import_summary.md
+
+        # Add NICs to summary
+        if [ ! -z "${{ inputs.nicNames }}" ]; then
+          # Handle multiple NICs with comma separation
+          echo "${{ inputs.nicNames }}" | tr ',' '\n' | while read -r nic_name; do
+            if [ ! -z "$nic_name" ]; then
+              echo "| Network Interface | $(echo $nic_name | xargs) | Imported |" >> import_summary.md
+            fi
+          done
+        else
+          for i in $(seq 1 ${{ inputs.nicCount }}); do
+            echo "| Network Interface | ${{ inputs.vmName }}-nic-$(printf "%02d" $i) | Imported |" >> import_summary.md
+          done
+        fi
+
+        # Add OS disk to summary
+        if [ ! -z "${{ inputs.osDiskName }}" ]; then
+          echo "| OS Disk | ${{ inputs.osDiskName }} | Imported |" >> import_summary.md
+        else
+          echo "| OS Disk | ${{ inputs.vmName }}-disk-os | Imported |" >> import_summary.md
+        fi
+
+        # Add data disks to summary
+        if [ "${{ inputs.dataDiskCount }}" -ne "0" ]; then
+          if [ ! -z "${{ inputs.dataDiskNames }}" ]; then
+            # Handle multiple data disks with comma separation
+            echo "${{ inputs.dataDiskNames }}" | tr ',' '\n' | while read -r disk_name; do
+              if [ ! -z "$disk_name" ]; then
+                echo "| Data Disk | $(echo $disk_name | xargs) | Imported |" >> import_summary.md
+              fi
+            done
+          else
+            for i in $(seq 0 $((${{ inputs.dataDiskCount }}-1))); do
+              echo "| Data Disk | ${{ inputs.vmName }}-data_disk-$i | Imported |" >> import_summary.md
+            done
+          fi
+        fi
+
+        echo "" >> import_summary.md
+        echo "Terraform state file: ${{ inputs.environment }}-${{ inputs.vmName }}-import.tfstate" >> import_summary.md
+
+        cat import_summary.md
+
+    - name: "Upload Import Summary"
+      uses: actions/upload-artifact@v4
+      with:
+        name: import-summary
+        path: import_summary.md
