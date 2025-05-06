@@ -56,7 +56,7 @@ jobs:
         shell: bash
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Az login
       uses: azure/login@v2
       with:
@@ -123,4 +123,4 @@ jobs:
         TF_VAR_purpose: '${{inputs.purpose}}'
         TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
         TF_VAR_disk_size_gb: '${{inputs.diskSizeGB}}'
-        TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}' 
+        TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'

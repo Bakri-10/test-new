@@ -118,7 +118,9 @@ locals {
 
   #
   naming = {
-    bu                        = lower(split("-", data.azurerm_subscription.current.display_name)[1])
+    bu                        = (strcontains(var.purpose_rg, "/") ? 
+                                  lower(split("/", var.purpose_rg)[0]) :
+                                  lower(split("-", data.azurerm_subscription.current.display_name)[1]))
     environment               = lower(split("-", data.azurerm_subscription.current.display_name)[2])
     environment_abbreviation  = (var.environment_abbr_xref[
                                 lower(split("-", data.azurerm_subscription.current.display_name)[2])])
@@ -196,6 +198,12 @@ locals {
       row_id => {
         rg_name     = (strcontains(inst.purpose_rg, "-") ? 
                         inst.purpose_rg : 
+                        strcontains(inst.purpose_rg, "/") ?
+                        join("-", [ local.naming.bu, 
+                                    local.naming.environment, 
+                                    var.location_xref[var.location], 
+                                    split("/", inst.purpose_rg)[1],
+                                    "rg"]) :
                         join("-", [ local.naming.bu, 
                                     local.naming.environment, 
                                     var.location_xref[var.location], 
