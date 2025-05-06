@@ -137,10 +137,10 @@ variable "purpose" {
 variable "purpose_rg" {
   type        = string
   default     = "default"
-  description = "(Required) The purpose segment of the Resource Group name. Format options: 1) Simple string 2) Hyphen-separated name for existing RG 3) BU/Purpose format to override business unit (e.g. ari/sgs)"
+  description = "(Required) The purpose segment of the Resource Group name. Format options - 1) Simple string for default naming 2) Hyphen-separated name to use existing RG 3) BU/Purpose format to override business unit (e.g. ari/sgs)"
   validation {
-    condition     = strcontains(var.purpose_rg, "-") ? length(var.purpose_rg) <= 80 : (strcontains(var.purpose_rg, "/") ? (length(split("/", var.purpose_rg)[0]) <= 5 && length(split("/", var.purpose_rg)[1]) <= 5) : length(var.purpose_rg) <= 5)
-    error_message = "(Required) For simple purpose: segment cannot exceed 5 characters. For BU/Purpose format: both parts should not exceed 5 characters each. For existing RG with hyphen: name cannot exceed 80 characters."
+    condition     = strcontains(var.purpose_rg, "-") ? length(var.purpose_rg) <= 80 : (strcontains(var.purpose_rg, "/") ? length(var.purpose_rg) <= 15 : length(var.purpose_rg) <= 5)
+    error_message = "(Required) Purpose segment cannot exceed 5 characters. BU/Purpose format cannot exceed 15 characters. Name cannot exceed 80."
   }  
  }
 variable "project_ou" {

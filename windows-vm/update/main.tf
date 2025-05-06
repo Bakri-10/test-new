@@ -27,7 +27,9 @@ provider "time" {}
 #
 locals {
   naming = {
-    bu                        = lower(split("-", data.azurerm_subscription.current.display_name)[1])
+    bu                        = (strcontains(var.purpose_rg, "/") ? 
+                                  lower(split("/", var.purpose_rg)[0]) :
+                                  lower(split("-", data.azurerm_subscription.current.display_name)[1]))
     environment               = lower(split("-", data.azurerm_subscription.current.display_name)[2])
     environment_abbreviation  = (var.environment_abbr_xref[
                                 lower(split("-", data.azurerm_subscription.current.display_name)[2])])
@@ -66,6 +68,12 @@ locals {
   osd_name                                  = join("-", [local.vm_name, "disk-os"])
   rg_name                                   = (strcontains(var.purpose_rg, "-") ? 
                                                 var.purpose_rg : 
+                                                strcontains(var.purpose_rg, "/") ?
+                                                join("-", [ local.naming.bu, 
+                                                            local.naming.environment, 
+                                                            var.location_xref[var.location], 
+                                                            split("/", var.purpose_rg)[1],
+                                                            "rg"]) :
                                                 join("-", [ local.naming.bu, 
                                                             local.naming.environment, 
                                                             var.location_xref[var.location], 
