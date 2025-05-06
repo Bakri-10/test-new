@@ -63,9 +63,11 @@ locals {
   count_vm_backup_now                       = var.request_type == "Backup VM Now" ? 1 : 0
   count_vm_restore                          = var.request_type == "Restore VM" ? 1 : 0
   
-  dd_name                                   = join("-",[local.vm_name, "data_disk", "0"])
+  # Disk names include -01 suffix to match the actual Azure disk naming convention
+  dd_name                                   = join("-",[local.vm_name, "data_disk", "0-01"])
   feature_vm_stop_start                     = 0 # 0 = not run, 1 - run
-  osd_name                                  = join("-", [local.vm_name, "disk-os"])
+  # Disk names include -01 suffix to match the actual Azure disk naming convention
+  osd_name                                  = join("-", [local.vm_name, "disk-os-01"])
   rg_name                                   = (strcontains(var.purpose_rg, "-") ? 
                                                 var.purpose_rg : 
                                                 strcontains(var.purpose_rg, "/") ?

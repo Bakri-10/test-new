@@ -718,7 +718,8 @@ resource "azurerm_windows_virtual_machine" "main" {
       disk_size_gb          = ((each.value).os_disk_size_gb <= 128 ?
                                 null :
                                 (each.value).os_disk_size_gb)
-      name                  = join("-", [(each.value).vm_name, "disk-os"])
+      # Disk names include -01 suffix to match the actual Azure disk naming convention
+      name                  = join("-", [(each.value).vm_name, "disk-os-01"])
    }
   source_image_reference {
     publisher = "MicrosoftWindowsServer"
