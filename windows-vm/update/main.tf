@@ -41,15 +41,22 @@ locals {
     subscription_id           = data.azurerm_subscription.current.id
    }
   #
-  count_dd_storage_account_type             = ( var.request_type == "Update (Data Disk)" && 
-                                                var.disk_storage_account_type != " " && 
-                                                lower(var.disk_size_gb) == "same" ? 1 : 0)
-  count_dd_storage_account_type__dd_size_gb = ( var.request_type == "Update (Data Disk)" && 
-                                                var.disk_storage_account_type != " " && 
-                                                lower(var.disk_size_gb) != "same" ? 1 : 0)
-  count_dd_size_gb                          = ( var.request_type == "Update (Data Disk)" && 
-                                                var.disk_storage_account_type == " " && 
-                                                lower(var.disk_size_gb) != "same" ? 1 : 0)
+  # Check if data disk operations are requested
+  count_data_disk_ops = (var.request_type == "Update (Data Disk)" ? 1 : 0)
+  
+  # Only try to fetch data disk if operations are requested
+  data_disk_exists = try(data.azurerm_managed_disk.data_disk[0].id != "", false)
+  
+  # Only perform operations if the disk actually exists
+  count_dd_storage_account_type             = (local.count_data_disk_ops == 1 && local.data_disk_exists && 
+                                               var.disk_storage_account_type != " " && 
+                                               lower(var.disk_size_gb) == "same" ? 1 : 0)
+  count_dd_storage_account_type__dd_size_gb = (local.count_data_disk_ops == 1 && local.data_disk_exists && 
+                                               var.disk_storage_account_type != " " && 
+                                               lower(var.disk_size_gb) != "same" ? 1 : 0)
+  count_dd_size_gb                          = (local.count_data_disk_ops == 1 && local.data_disk_exists && 
+                                               var.disk_storage_account_type == " " && 
+                                               lower(var.disk_size_gb) != "same" ? 1 : 0)
   count_os_storage_account_type             = ( var.request_type == "Update (OS Disk)" && 
                                                 var.disk_storage_account_type != " " ? 1 : 0)
   count_vm_size                             = lower(var.vm_size) != "same" ? 1 : 0
@@ -105,10 +112,12 @@ locals {
   backup_policy_id                          = var.backup_policy_id != "" ? var.backup_policy_id : try(data.azurerm_backup_policy_vm.policy[0].id, "")
  }
 #
+# Make the data disk lookup conditional to avoid errors
 data "azurerm_managed_disk" "data_disk" {
+  count               = local.count_data_disk_ops
   name                = local.dd_name
   resource_group_name = local.rg_name
- }
+}
 data "azurerm_managed_disk" "os_disk" {
   name                = local.osd_name
   resource_group_name = local.rg_name
@@ -187,7 +196,7 @@ resource "azapi_resource_action" "vm_restart_start" {
 resource "azapi_update_resource" "dd_size_gb" {
   count = local.count_dd_size_gb
   type = "Microsoft.Compute/disks@2023-10-02"
-  resource_id = data.azurerm_managed_disk.data_disk.id
+  resource_id = data.azurerm_managed_disk.data_disk[0].id
   body = {
     properties = {
       diskSizeGB = var.disk_size_gb
@@ -197,7 +206,7 @@ resource "azapi_update_resource" "dd_size_gb" {
 resource "azapi_update_resource" "dd_storage_account_type" {
   count = local.count_dd_storage_account_type
   type = "Microsoft.Compute/disks@2023-10-02"
-  resource_id = data.azurerm_managed_disk.data_disk.id
+  resource_id = data.azurerm_managed_disk.data_disk[0].id
   body = {
     sku = {
       name = var.disk_storage_account_type
@@ -207,7 +216,7 @@ resource "azapi_update_resource" "dd_storage_account_type" {
 resource "azapi_update_resource" "dd_storage_account_type__dd_size_gb" {
   count = local.count_dd_storage_account_type__dd_size_gb
   type = "Microsoft.Compute/disks@2023-10-02"
-  resource_id = data.azurerm_managed_disk.data_disk.id
+  resource_id = data.azurerm_managed_disk.data_disk[0].id
   body = {
     properties = {
       diskSizeGB = var.disk_size_gb
@@ -300,5 +309,10 @@ resource "time_sleep" "wait_for_restore" {
   count           = local.count_vm_restore
   depends_on      = [azapi_resource_action.vm_restore]
   create_duration = "180s" # Wait for restore to initiate
+}
+
+# Output a message about disk operations
+output "disk_operation_status" {
+  value = local.count_data_disk_ops > 0 ? "Data disk operations requested for disk: ${local.dd_name}" : "No data disk operations requested"
 }
 #
