@@ -105,12 +105,20 @@ jobs:
         SUBNET2=$(echo $SUBNET_LIST | jq -r '.[1] // empty')
         echo "subnet1=${SUBNET1}" >> $GITHUB_OUTPUT
         echo "subnet2=${SUBNET2}" >> $GITHUB_OUTPUT
+    - name: Set VM size for Terraform
+      id: set_vmsize
+      run: |
+        if [ "${{ inputs.requestType }}" = "Update VM SKU" ]; then
+          echo "TF_VM_SIZE=${{ inputs.vmsize }}" >> $GITHUB_ENV
+        else
+          echo "TF_VM_SIZE=same" >> $GITHUB_ENV
+        fi
     - name: Terraform Initialize
       run: terraform init -backend-config="resource_group_name=$BACKEND_RESOURCE_GROUP" -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate" -input=false
       env:
         TF_VAR_request_type: '${{inputs.requestType}}'
         TF_VAR_location: '${{inputs.location}}'
-        TF_VAR_vm_size: '${{inputs.vmsize}}'
+        TF_VAR_vm_size: '${{ env.TF_VM_SIZE }}'
         TF_VAR_purpose: '${{inputs.purpose}}'
         TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
         TF_VAR_project_ou: '${{inputs.projectou}}'
@@ -131,7 +139,7 @@ jobs:
       env:
         TF_VAR_request_type: '${{inputs.requestType}}'
         TF_VAR_location: '${{inputs.location}}'
-        TF_VAR_vm_size: '${{inputs.vmsize}}'
+        TF_VAR_vm_size: '${{ env.TF_VM_SIZE }}'
         TF_VAR_purpose: '${{inputs.purpose}}'
         TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
         TF_VAR_project_ou: '${{inputs.projectou}}'
@@ -152,7 +160,7 @@ jobs:
       env:
         TF_VAR_request_type: '${{inputs.requestType}}'
         TF_VAR_location: '${{inputs.location}}'
-        TF_VAR_vm_size: '${{inputs.vmsize}}'
+        TF_VAR_vm_size: '${{ env.TF_VM_SIZE }}'
         TF_VAR_purpose: '${{inputs.purpose}}'
         TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
         TF_VAR_project_ou: '${{inputs.projectou}}'
@@ -174,7 +182,7 @@ jobs:
       env:
         TF_VAR_request_type: '${{inputs.requestType}}'
         TF_VAR_location: '${{inputs.location}}'
-        TF_VAR_vm_size: '${{inputs.vmsize}}'
+        TF_VAR_vm_size: '${{ env.TF_VM_SIZE }}'
         TF_VAR_purpose: '${{inputs.purpose}}'
         TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
         TF_VAR_project_ou: '${{inputs.projectou}}'

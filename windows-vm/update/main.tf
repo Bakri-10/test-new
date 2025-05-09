@@ -59,7 +59,7 @@ locals {
                                                lower(var.disk_size_gb) != "same" ? 1 : 0)
   count_os_storage_account_type             = ( var.request_type == "Update (OS Disk)" && 
                                                 var.disk_storage_account_type != " " ? 1 : 0)
-  count_vm_size                             = lower(var.vm_size) != "same" ? 1 : 0
+  count_vm_size                             = (var.request_type == "Update VM SKU" && lower(var.vm_size) != "same") ? 1 : 0
   count_vm_start                            = var.request_type == "Start VM" ? 1 : 0
   count_vm_stop                             = var.request_type == "Stop VM" ? 1 : 0
   count_vm_restart                          = var.request_type == "Restart VM" ? 1 : 0
