@@ -115,7 +115,6 @@ jobs:
     needs: validate-inputs
     name: "VM Import Operation"
     uses: ./.github/workflows/WindowsVMImport.yml
-    environment: ${{ inputs.environment }}
     secrets:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}

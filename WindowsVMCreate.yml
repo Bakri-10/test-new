@@ -91,10 +91,24 @@ jobs:
           echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
           echo "BACKEND_RESOURCE_GROUP=${{ secrets.BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
         fi
-    - name: Debug Environment Variables
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
+        enable-AzPSSession: true
+    - name: Debug Environment Information
       run: |
-        echo "BACKEND_STORAGE_ACCOUNT=$BACKEND_STORAGE_ACCOUNT"
-        echo "BACKEND_RESOURCE_GROUP=$BACKEND_RESOURCE_GROUP" 
+        echo "Environment: ${{ inputs.environment }}"
+        echo "Subscription ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}"
+        echo "Backend Resource Group: ${{ secrets.BACKEND_RESOURCE_GROUP }}"
+        echo "Backend Storage Account: ${{ secrets.BACKEND_STORAGE_ACCOUNT }}"
+
+        # Verify storage account exists in this subscription
+        echo "Checking if storage account exists in this subscription..."
+        az storage account show --name ${{ secrets.BACKEND_STORAGE_ACCOUNT }} --resource-group ${{ secrets.BACKEND_RESOURCE_GROUP }} || {
+          echo "WARNING: Storage account ${{ secrets.BACKEND_STORAGE_ACCOUNT }} either doesn't exist in this subscription or you don't have permission to view it."
+          echo "Make sure the correct storage account is configured for this environment: ${{ inputs.environment }}"
+        }
     - name: Parse Subnet Names
       id: parse_subnets
       run: |

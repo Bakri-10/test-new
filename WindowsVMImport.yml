@@ -117,6 +117,20 @@ jobs:
         creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
         enable-AzPSSession: true
 
+    - name: Debug Environment Information
+      run: |
+        echo "Environment: ${{ inputs.environment }}"
+        echo "Subscription ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}"
+        echo "Backend Resource Group: ${{ secrets.BACKEND_RESOURCE_GROUP }}"
+        echo "Backend Storage Account: ${{ secrets.BACKEND_STORAGE_ACCOUNT }}"
+
+        # Verify storage account exists in this subscription
+        echo "Checking if storage account exists in this subscription..."
+        az storage account show --name ${{ secrets.BACKEND_STORAGE_ACCOUNT }} --resource-group ${{ secrets.BACKEND_RESOURCE_GROUP }} || {
+          echo "WARNING: Storage account ${{ secrets.BACKEND_STORAGE_ACCOUNT }} either doesn't exist in this subscription or you don't have permission to view it."
+          echo "Make sure the correct storage account is configured for this environment: ${{ inputs.environment }}"
+        }
+
     - name: "Setup Terraform"
       uses: hashicorp/setup-terraform@v3
       with:
