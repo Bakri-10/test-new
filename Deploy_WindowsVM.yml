@@ -118,8 +118,6 @@ jobs:
       ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
       ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
       ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
-      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
-      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
     with:
       requestType: '${{inputs.requestType}}'
       environment: '${{inputs.environment}}'
@@ -142,8 +140,6 @@ jobs:
       ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
       ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
       ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
-      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
-      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
     with:
       requestType: '${{inputs.requestType}}'
       environment: '${{inputs.environment}}'
@@ -186,8 +182,6 @@ jobs:
       ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
-      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
     with:
       requestType: '${{ inputs.requestType }}'
       environment: '${{ inputs.environment }}'

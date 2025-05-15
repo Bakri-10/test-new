@@ -50,10 +50,6 @@ on:
         required: true
       ARM_TENANT_ID:
         required: true
-      BACKEND_STORAGE_ACCOUNT:
-        required: true
-      BACKEND_RESOURCE_GROUP:
-        required: true
 
 permissions:
   contents: read
@@ -85,13 +81,13 @@ jobs:
       run: |
         echo "Environment: ${{ inputs.environment }}"
         echo "Subscription ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}"
-        echo "Backend Resource Group: ${{ secrets.BACKEND_RESOURCE_GROUP }}"
-        echo "Backend Storage Account: ${{ secrets.BACKEND_STORAGE_ACCOUNT }}"
+        echo "Backend Resource Group: ${{ vars.BACKEND_RESOURCE_GROUP }}"
+        echo "Backend Storage Account: ${{ vars.BACKEND_STORAGE_ACCOUNT }}"
 
         # Verify storage account exists in this subscription
         echo "Checking if storage account exists in this subscription..."
-        az storage account show --name ${{ secrets.BACKEND_STORAGE_ACCOUNT }} --resource-group ${{ secrets.BACKEND_RESOURCE_GROUP }} || {
-          echo "WARNING: Storage account ${{ secrets.BACKEND_STORAGE_ACCOUNT }} either doesn't exist in this subscription or you don't have permission to view it."
+        az storage account show --name ${{ vars.BACKEND_STORAGE_ACCOUNT }} --resource-group ${{ vars.BACKEND_RESOURCE_GROUP }} || {
+          echo "WARNING: Storage account ${{ vars.BACKEND_STORAGE_ACCOUNT }} either doesn't exist in this subscription or you don't have permission to view it."
           echo "Make sure the correct storage account is configured for this environment: ${{ inputs.environment }}"
         }
 
@@ -111,7 +107,7 @@ jobs:
         TF_VAR_recovery_vault_rg: '${{inputs.recoveryVaultRG}}'
         TF_VAR_backup_policy_name: '${{inputs.backupPolicyName}}'
         TF_VAR_recovery_point_id: '${{inputs.recoveryPointId}}'
-        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-backup.tfstate"'
+        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ vars.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ vars.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-backup.tfstate"'
 
     - name: 'Terraform Plan - Backup/Restore Operations'
       uses: hashicorp/terraform-github-actions@master
