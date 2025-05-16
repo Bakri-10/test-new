@@ -127,6 +127,55 @@ jobs:
           echo "Make sure the correct storage account is configured for this environment: ${{ inputs.environment }}"
         }
 
+    - name: Verify Environment-Specific Secrets
+      run: |
+        echo "======= ENVIRONMENT-SPECIFIC SECRETS VERIFICATION ======="
+        echo "Environment: ${{ inputs.environment }}"
+
+        # Get current subscription details
+        SUBSCRIPTION_INFO=$(az account show --query "{name:name, id:id}" -o json)
+        SUBSCRIPTION_NAME=$(echo $SUBSCRIPTION_INFO | jq -r '.name')
+        SUBSCRIPTION_ID=$(echo $SUBSCRIPTION_INFO | jq -r '.id')
+
+        echo "Current subscription: $SUBSCRIPTION_NAME"
+        echo "Subscription ID: ${SUBSCRIPTION_ID:0:8}...${SUBSCRIPTION_ID: -4}"
+
+        # Get current user/SP info
+        CLIENT_ID="${{ secrets.ARM_CLIENT_ID }}"
+        echo "Service Principal ID: ${CLIENT_ID:0:8}...${CLIENT_ID: -4}"
+
+        # Verify environment-subscription match
+        echo ""
+        echo "Verifying environment-subscription match:"
+        MATCH_FOUND=false
+
+        # Check patterns based on environment
+        if [[ "${{ inputs.environment }}" == "DEV" && ($SUBSCRIPTION_NAME == *"dev"* || $SUBSCRIPTION_NAME == *"Dev"* || $SUBSCRIPTION_NAME == *"DEV"*) ]]; then
+          echo "✅ CONFIRMED: DEV environment using DEV subscription"
+          MATCH_FOUND=true
+        elif [[ "${{ inputs.environment }}" == "UAT" && ($SUBSCRIPTION_NAME == *"uat"* || $SUBSCRIPTION_NAME == *"UAT"*) ]]; then
+          echo "✅ CONFIRMED: UAT environment using UAT subscription"
+          MATCH_FOUND=true
+        elif [[ "${{ inputs.environment }}" == "QA" && ($SUBSCRIPTION_NAME == *"qa"* || $SUBSCRIPTION_NAME == *"QA"*) ]]; then
+          echo "✅ CONFIRMED: QA environment using QA subscription"
+          MATCH_FOUND=true
+        elif [[ "${{ inputs.environment }}" == "PROD" && ($SUBSCRIPTION_NAME == *"prod"* || $SUBSCRIPTION_NAME == *"Prod"* || $SUBSCRIPTION_NAME == *"PROD"*) ]]; then
+          echo "✅ CONFIRMED: PROD environment using PROD subscription"
+          MATCH_FOUND=true
+        fi
+
+        if [[ "$MATCH_FOUND" == "false" ]]; then
+          echo "⚠️ WARNING: The current subscription name doesn't contain the environment name!"
+          echo "  - Environment: ${{ inputs.environment }}"
+          echo "  - Subscription: $SUBSCRIPTION_NAME"
+          echo "This might be intentional, but verify that you're using the correct environment-specific secrets."
+        fi
+
+        echo ""
+        echo "Storage Account: ${{ vars.BACKEND_STORAGE_ACCOUNT }}"
+        echo "Resource Group: ${{ vars.BACKEND_RESOURCE_GROUP }}"
+        echo "========================================================"
+
     - name: "Setup Terraform"
       uses: hashicorp/setup-terraform@v3
       with:
