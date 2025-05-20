@@ -28,13 +28,13 @@ on:
         type: string
         required: false
     secrets:
-      ARM_CLIENT_ID:
+      AZURE_CLIENT_ID:
         required: true
-      ARM_CLIENT_SECRET:
+      AZURE_CLIENT_SECRET:
         required: true
-      ARM_SUBSCRIPTION_ID:
+      AZURE_SUBSCRIPTION_ID:
         required: true
-      ARM_TENANT_ID:
+      AZURE_TENANT_ID:
         required: true
 
 permissions:
@@ -44,10 +44,10 @@ jobs:
   wvm-maintain:
     name: 'Maintain Windows VM'
     env:
-      ARM_CLIENT_ID: ${{secrets.ARM_CLIENT_ID}}
-      ARM_CLIENT_SECRET: ${{secrets.ARM_CLIENT_SECRET}}
-      ARM_TENANT_ID: ${{secrets.ARM_TENANT_ID}}
-      ARM_SUBSCRIPTION_ID: ${{secrets.ARM_SUBSCRIPTION_ID}}
+      ARM_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
+      ARM_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
+      ARM_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      ARM_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
       ROOT_PATH: 'Azure/windows-vm/update'
     runs-on: ubuntu-latest
     environment: ${{inputs.environment}}
@@ -60,20 +60,20 @@ jobs:
     - name: Az login
       uses: azure/login@v2
       with:
-        creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
-        enable-AzPSSession: true
+        creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}'
+        enable-AzPSSession: false
 
     - name: Debug Environment Information
       run: |
         echo "Environment: ${{ inputs.environment }}"
-        echo "Subscription ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}"
-        echo "Backend Resource Group: ${{ env.BACKEND_RESOURCE_GROUP }}"
-        echo "Backend Storage Account: ${{ env.BACKEND_STORAGE_ACCOUNT }}"
+        echo "Subscription ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+        echo "Backend Resource Group: ${{ vars.BACKEND_RESOURCE_GROUP }}"
+        echo "Backend Storage Account: ${{ vars.BACKEND_STORAGE_ACCOUNT }}"
 
         # Verify storage account exists in this subscription
         echo "Checking if storage account exists in this subscription..."
-        az storage account show --name ${{ env.BACKEND_STORAGE_ACCOUNT }} --resource-group ${{ env.BACKEND_RESOURCE_GROUP }} || {
-          echo "WARNING: Storage account ${{ env.BACKEND_STORAGE_ACCOUNT }} either doesn't exist in this subscription or you don't have permission to view it."
+        az storage account show --name ${{ vars.BACKEND_STORAGE_ACCOUNT }} --resource-group ${{ vars.BACKEND_RESOURCE_GROUP }} || {
+          echo "WARNING: Storage account ${{ vars.BACKEND_STORAGE_ACCOUNT }} either doesn't exist in this subscription or you don't have permission to view it."
           echo "Make sure the correct storage account is configured for this environment: ${{ inputs.environment }}"
         }
 
@@ -92,7 +92,7 @@ jobs:
         TF_VAR_purpose_rg: '${{inputs.purposeRG}}'
         TF_VAR_disk_size_gb: '${{inputs.diskSizeGB}}'
         TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
-        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ env.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ env.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-maintain.tfstate"'
+        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ vars.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ vars.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-maintain.tfstate"'
 
     - name: 'Terraform Plan'
       uses: hashicorp/terraform-github-actions@master

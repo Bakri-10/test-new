@@ -55,13 +55,13 @@ on:
         description: "Generate import commands without executing them"
         default: false
     secrets:
-      ARM_CLIENT_ID:
+      AZURE_CLIENT_ID:
         required: true
-      ARM_CLIENT_SECRET:
+      AZURE_CLIENT_SECRET:
         required: true
-      ARM_SUBSCRIPTION_ID:
+      AZURE_SUBSCRIPTION_ID:
         required: true
-      ARM_TENANT_ID:
+      AZURE_TENANT_ID:
         required: true
 
 permissions:
@@ -71,10 +71,10 @@ jobs:
   wvm-import:
     name: "VM Import Operations"
     env:
-      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
-      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ROOT_PATH: "Azure/windows-vm/import"
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
@@ -110,20 +110,20 @@ jobs:
     - name: Az login
       uses: azure/login@v2
       with:
-        creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
-        enable-AzPSSession: true
+        creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}'
+        enable-AzPSSession: false
 
     - name: Debug Environment Information
       run: |
         echo "Environment: ${{ inputs.environment }}"
-        echo "Subscription ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}"
-        echo "Backend Resource Group: ${{ env.BACKEND_RESOURCE_GROUP }}"
-        echo "Backend Storage Account: ${{ env.BACKEND_STORAGE_ACCOUNT }}"
+        echo "Subscription ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+        echo "Backend Resource Group: ${{ vars.BACKEND_RESOURCE_GROUP }}"
+        echo "Backend Storage Account: ${{ vars.BACKEND_STORAGE_ACCOUNT }}"
 
         # Verify storage account exists in this subscription
         echo "Checking if storage account exists in this subscription..."
-        az storage account show --name ${{ env.BACKEND_STORAGE_ACCOUNT }} --resource-group ${{ env.BACKEND_RESOURCE_GROUP }} || {
-          echo "WARNING: Storage account ${{ env.BACKEND_STORAGE_ACCOUNT }} either doesn't exist in this subscription or you don't have permission to view it."
+        az storage account show --name ${{ vars.BACKEND_STORAGE_ACCOUNT }} --resource-group ${{ vars.BACKEND_RESOURCE_GROUP }} || {
+          echo "WARNING: Storage account ${{ vars.BACKEND_STORAGE_ACCOUNT }} either doesn't exist in this subscription or you don't have permission to view it."
           echo "Make sure the correct storage account is configured for this environment: ${{ inputs.environment }}"
         }
 
@@ -141,7 +141,7 @@ jobs:
         echo "Subscription ID: ${SUBSCRIPTION_ID:0:8}...${SUBSCRIPTION_ID: -4}"
 
         # Get current user/SP info
-        CLIENT_ID="${{ secrets.ARM_CLIENT_ID }}"
+        CLIENT_ID="${{ secrets.AZURE_CLIENT_ID }}"
         echo "Service Principal ID: ${CLIENT_ID:0:8}...${CLIENT_ID: -4}"
 
         # Verify environment-subscription match
@@ -172,8 +172,8 @@ jobs:
         fi
 
         echo ""
-        echo "Storage Account: ${{ env.BACKEND_STORAGE_ACCOUNT }}"
-        echo "Resource Group: ${{ env.BACKEND_RESOURCE_GROUP }}"
+        echo "Storage Account: ${{ vars.BACKEND_STORAGE_ACCOUNT }}"
+        echo "Resource Group: ${{ vars.BACKEND_RESOURCE_GROUP }}"
         echo "========================================================"
 
     - name: "Setup Terraform"
@@ -198,7 +198,7 @@ jobs:
         TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
         TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
         TF_VAR_data_disk_names: ${{ env.data_disk_names }}
-        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ env.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ env.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.vmName }}.tfstate"'
+        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ vars.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ vars.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.vmName }}.tfstate"'
 
     - name: "Terraform Plan - Generate Import Commands"
       id: terraform_plan
@@ -242,7 +242,7 @@ jobs:
         # Generate import commands directly without relying on terraform
 
         # VM import command
-        vm_id="/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}"
+        vm_id="/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}"
         echo "terraform import azurerm_windows_virtual_machine.import ${vm_id}" > import_commands.txt
 
         # For NIC imports
@@ -252,14 +252,14 @@ jobs:
           for i in "${!nic_names[@]}"; do
             nic_name="${nic_names[$i]}"
             if [ ! -z "$nic_name" ]; then
-              echo "terraform import 'azurerm_network_interface.import[\"$nic_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Network/networkInterfaces/$nic_name" >> import_commands.txt
+              echo "terraform import 'azurerm_network_interface.import[\"$nic_name\"]' /subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Network/networkInterfaces/$nic_name" >> import_commands.txt
             fi
           done
         else
           # Use default naming for NICs
           for i in $(seq 1 ${{ inputs.nicCount }}); do
             nic_name="${{ inputs.vmName }}-nic-$(printf "%02d" $i)"
-            echo "terraform import 'azurerm_network_interface.import[\"$nic_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Network/networkInterfaces/$nic_name" >> import_commands.txt
+            echo "terraform import 'azurerm_network_interface.import[\"$nic_name\"]' /subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Network/networkInterfaces/$nic_name" >> import_commands.txt
           done
         fi
 
@@ -271,16 +271,16 @@ jobs:
             # Generate default disk names
             for i in $(seq 0 $((${{ inputs.dataDiskCount }}-1))); do
               disk_name="${{ inputs.vmName }}-data_disk-$i"
-              echo "terraform import 'azurerm_managed_disk.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name" >> import_commands.txt
-              echo "terraform import 'azurerm_virtual_machine_data_disk_attachment.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}|/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name|$i" >> import_commands.txt
+              echo "terraform import 'azurerm_managed_disk.import[\"$disk_name\"]' /subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name" >> import_commands.txt
+              echo "terraform import 'azurerm_virtual_machine_data_disk_attachment.import[\"$disk_name\"]' /subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}|/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name|$i" >> import_commands.txt
             done
           else
             # Use provided disk names
             for i in "${!disk_names[@]}"; do
               disk_name="${disk_names[$i]}"
               if [ ! -z "$disk_name" ]; then
-                echo "terraform import 'azurerm_managed_disk.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name" >> import_commands.txt
-                echo "terraform import 'azurerm_virtual_machine_data_disk_attachment.import[\"$disk_name\"]' /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}|/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name|$i" >> import_commands.txt
+                echo "terraform import 'azurerm_managed_disk.import[\"$disk_name\"]' /subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name" >> import_commands.txt
+                echo "terraform import 'azurerm_virtual_machine_data_disk_attachment.import[\"$disk_name\"]' /subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/virtualMachines/${{ inputs.vmName }}|/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.resourceGroupName }}/providers/Microsoft.Compute/disks/$disk_name|$i" >> import_commands.txt
               fi
             done
           fi
