@@ -79,14 +79,14 @@ jobs:
       name: Set environment variables based on deployment environment
       run: |
         if [ "${{ inputs.environment }}" = "prod" ]; then
-          echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
-          echo "BACKEND_RESOURCE_GROUP=${{ secrets.BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
+          echo "BACKEND_STORAGE_ACCOUNT=${{ env.BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
+          echo "BACKEND_RESOURCE_GROUP=${{ env.BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
         elif [ "${{ inputs.environment }}" = "uat" ]; then
-          echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
-          echo "BACKEND_RESOURCE_GROUP=${{ secrets.BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
+          echo "BACKEND_STORAGE_ACCOUNT=${{ env.BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
+          echo "BACKEND_RESOURCE_GROUP=${{ env.BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
         else
-          echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
-          echo "BACKEND_RESOURCE_GROUP=${{ secrets.BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
+          echo "BACKEND_STORAGE_ACCOUNT=${{ env.BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
+          echo "BACKEND_RESOURCE_GROUP=${{ env.BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
         fi
     - name: Azure Login
       uses: azure/login@v2
@@ -97,13 +97,13 @@ jobs:
       run: |
         echo "Environment: ${{ inputs.environment }}"
         echo "Subscription ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}"
-        echo "Backend Resource Group: ${{ vars.BACKEND_RESOURCE_GROUP }}"
-        echo "Backend Storage Account: ${{ vars.BACKEND_STORAGE_ACCOUNT }}"
+        echo "Backend Resource Group: ${{ env.BACKEND_RESOURCE_GROUP }}"
+        echo "Backend Storage Account: ${{ env.BACKEND_STORAGE_ACCOUNT }}"
 
         # Verify storage account exists in this subscription
         echo "Checking if storage account exists in this subscription..."
-        az storage account show --name ${{ vars.BACKEND_STORAGE_ACCOUNT }} --resource-group ${{ vars.BACKEND_RESOURCE_GROUP }} || {
-          echo "WARNING: Storage account ${{ vars.BACKEND_STORAGE_ACCOUNT }} either doesn't exist in this subscription or you don't have permission to view it."
+        az storage account show --name ${{ env.BACKEND_STORAGE_ACCOUNT }} --resource-group ${{ env.BACKEND_RESOURCE_GROUP }} || {
+          echo "WARNING: Storage account ${{ env.BACKEND_STORAGE_ACCOUNT }} either doesn't exist in this subscription or you don't have permission to view it."
           echo "Make sure the correct storage account is configured for this environment: ${{ inputs.environment }}"
         }
     - name: Parse Subnet Names
@@ -142,7 +142,7 @@ jobs:
         TF_VAR_subnetname_wvm2: '${{ steps.parse_subnets.outputs.subnet2 }}'
         TF_VAR_disk_size_gb: '${{inputs.diskSizeGB}}'
         TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
-        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ vars.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ vars.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate"'
+        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ env.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ env.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate"'
     - name: 'Terraform Plan - Windows VM (${{ inputs.purpose }})'
       if: ${{ inputs.requestType == 'Create (with New RG)' || inputs.requestType == 'Create (with Existing RG)' }}
       uses: hashicorp/terraform-github-actions@master
@@ -162,8 +162,8 @@ jobs:
         TF_VAR_subnetname_wvm2: '${{ steps.parse_subnets.outputs.subnet2 }}'
         TF_VAR_disk_size_gb: '${{inputs.diskSizeGB}}'
         TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
-        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-        TF_VAR_BACKEND_RESOURCE_GROUP: '${{secrets.BACKEND_RESOURCE_GROUP}}'
+        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{ env.BACKEND_STORAGE_ACCOUNT }}'
+        TF_VAR_BACKEND_RESOURCE_GROUP: '${{ env.BACKEND_RESOURCE_GROUP }}'
     - name: 'Apply - Windows VM (${{ inputs.purpose }})'
       if: ${{ inputs.requestType == 'Create (with New RG)' || inputs.requestType == 'Create (with Existing RG)' }}
       uses: hashicorp/terraform-github-actions@master
@@ -183,8 +183,8 @@ jobs:
         TF_VAR_subnetname_wvm2: '${{ steps.parse_subnets.outputs.subnet2 }}'
         TF_VAR_disk_size_gb: '${{inputs.diskSizeGB}}'
         TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
-        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-        TF_VAR_BACKEND_RESOURCE_GROUP: '${{secrets.BACKEND_RESOURCE_GROUP}}'
+        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{ env.BACKEND_STORAGE_ACCOUNT }}'
+        TF_VAR_BACKEND_RESOURCE_GROUP: '${{ env.BACKEND_RESOURCE_GROUP }}'
     - name: 'Terraform Destroy - Windows VM (${{ inputs.purpose }})'
       if: ${{ inputs.requestType == 'Remove (Destroy VM)' }}
       uses: hashicorp/terraform-github-actions@master
@@ -205,5 +205,5 @@ jobs:
         TF_VAR_subnetname_wvm2: '${{ steps.parse_subnets.outputs.subnet2 }}'
         TF_VAR_disk_size_gb: '${{inputs.diskSizeGB}}'
         TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
-        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-        TF_VAR_BACKEND_RESOURCE_GROUP: '${{secrets.BACKEND_RESOURCE_GROUP}}'
+        TF_VAR_BACKEND_STORAGE_ACCOUNT: '${{ env.BACKEND_STORAGE_ACCOUNT }}'
+        TF_VAR_BACKEND_RESOURCE_GROUP: '${{ env.BACKEND_RESOURCE_GROUP }}'

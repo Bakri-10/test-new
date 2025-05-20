@@ -117,13 +117,13 @@ jobs:
       run: |
         echo "Environment: ${{ inputs.environment }}"
         echo "Subscription ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}"
-        echo "Backend Resource Group: ${{ vars.BACKEND_RESOURCE_GROUP }}"
-        echo "Backend Storage Account: ${{ vars.BACKEND_STORAGE_ACCOUNT }}"
+        echo "Backend Resource Group: ${{ env.BACKEND_RESOURCE_GROUP }}"
+        echo "Backend Storage Account: ${{ env.BACKEND_STORAGE_ACCOUNT }}"
 
         # Verify storage account exists in this subscription
         echo "Checking if storage account exists in this subscription..."
-        az storage account show --name ${{ vars.BACKEND_STORAGE_ACCOUNT }} --resource-group ${{ vars.BACKEND_RESOURCE_GROUP }} || {
-          echo "WARNING: Storage account ${{ vars.BACKEND_STORAGE_ACCOUNT }} either doesn't exist in this subscription or you don't have permission to view it."
+        az storage account show --name ${{ env.BACKEND_STORAGE_ACCOUNT }} --resource-group ${{ env.BACKEND_RESOURCE_GROUP }} || {
+          echo "WARNING: Storage account ${{ env.BACKEND_STORAGE_ACCOUNT }} either doesn't exist in this subscription or you don't have permission to view it."
           echo "Make sure the correct storage account is configured for this environment: ${{ inputs.environment }}"
         }
 
@@ -172,8 +172,8 @@ jobs:
         fi
 
         echo ""
-        echo "Storage Account: ${{ vars.BACKEND_STORAGE_ACCOUNT }}"
-        echo "Resource Group: ${{ vars.BACKEND_RESOURCE_GROUP }}"
+        echo "Storage Account: ${{ env.BACKEND_STORAGE_ACCOUNT }}"
+        echo "Resource Group: ${{ env.BACKEND_RESOURCE_GROUP }}"
         echo "========================================================"
 
     - name: "Setup Terraform"
@@ -198,7 +198,7 @@ jobs:
         TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
         TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
         TF_VAR_data_disk_names: ${{ env.data_disk_names }}
-        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ vars.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ vars.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.vmName }}.tfstate"'
+        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ env.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ env.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.vmName }}.tfstate"'
 
     - name: "Terraform Plan - Generate Import Commands"
       id: terraform_plan
