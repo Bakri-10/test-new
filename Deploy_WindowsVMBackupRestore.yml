@@ -60,7 +60,9 @@ on:
 
 jobs:
   validate-inputs:
-    runs-on: ubuntu-latest
+    runs-on:
+    - aks-runners
+    - ${{inputs.environment}}
     steps:
     - name: Validate inputs based on request type
       id: validate

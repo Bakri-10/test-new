@@ -78,7 +78,9 @@ on:
 
 jobs:
   parse_subnet_info:
-    runs-on: ubuntu-latest
+    runs-on:
+    - aks-runners
+    - ${{inputs.environment}}
     outputs:
       subnetNameWVM: ${{ steps.parse.outputs.subnetNameWVM }}
       subnetNameWVM2: ${{ steps.parse.outputs.subnetNameWVM2 }}
