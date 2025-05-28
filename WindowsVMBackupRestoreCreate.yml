@@ -64,8 +64,8 @@ jobs:
       ARM_SUBSCRIPTION_ID: ${{secrets.ARM_SUBSCRIPTION_ID}}
       ROOT_PATH: 'Azure/windows-vm/update'
     runs-on:
-    - aks-runners
-    - ${{inputs.environment}}
+      group: aks-runners
+      environment: ${{inputs.environment}}
     environment: ${{inputs.environment}}
     defaults:
       run:

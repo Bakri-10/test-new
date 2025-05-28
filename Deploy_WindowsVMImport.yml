@@ -62,8 +62,8 @@ on:
 jobs:
   validate-inputs:
     runs-on:
-    - aks-runners
-    - ${{ inputs.environment }}
+      group: aks-runners
+      environment: ${{ inputs.environment }}
     outputs:
       nic_name: ${{ steps.validate.outputs.nic_name }}
       nic_count: ${{ steps.validate.outputs.nic_count }}

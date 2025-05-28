@@ -1,0 +1,8 @@
+Check failure on line 98 in .github/workflows/Deploy_WindowsVM.yml
+
+
+GitHub Actions
+/ - Deploy Windows VM
+Invalid workflow file
+
+The workflow is not valid. .github/workflows/Deploy_WindowsVM.yml (Line: 98, Col: 11): Secret ARM_CLIENT_ID is required, but not provided while calling. .github/workflows/Deploy_WindowsVM.yml (Line: 98, Col: 11): Secret ARM_CLIENT_SECRET is required, but not provided while calling

@@ -79,8 +79,8 @@ on:
 jobs:
   parse_subnet_info:
     runs-on:
-    - aks-runners
-    - ${{inputs.environment}}
+      group: aks-runners
+      environment: ${{inputs.environment}}
     outputs:
       subnetNameWVM: ${{ steps.parse.outputs.subnetNameWVM }}
       subnetNameWVM2: ${{ steps.parse.outputs.subnetNameWVM2 }}
