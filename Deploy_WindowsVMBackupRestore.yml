@@ -1,0 +1,106 @@
+name: '- Deploy Windows VM Backup/Restore'
+run-name: 'Windows VM Backup/Restore - ${{inputs.environment}} purpose: ${{inputs.purpose}} : ${{inputs.requesttype}}'
+on:
+  workflow_dispatch:
+    inputs:
+      requesttype:
+        type: choice
+        required: true
+        description: Request Type
+        options:
+        - Enable VM Backup
+        - Disable VM Backup
+        - Backup VM Now
+        - Restore VM
+        default: "Enable VM Backup"
+      environment:
+        type: choice
+        required: true
+        description: Environment
+        options:
+        - DEV
+        - UAT
+        - QA
+        - PROD
+      location:
+        type: choice
+        required: true
+        description: Deployment Location
+        options:
+        - eastus2
+        - uksouth
+        - centralus
+        - ukwest
+      purpose:
+        type: string
+        required: true
+        description: Role/Sequence for VM (RRRR/SSS) or VM name with hyphen
+      purposeRG:
+        type: string
+        required: true
+        description: Resource Group Purpose or name with hyphen
+      recoveryVaultName:
+        type: string
+        required: true
+        description: Name of the Recovery Services Vault
+      recoveryVaultRG:
+        type: string
+        required: true
+        description: Resource Group of the Recovery Services Vault
+      backupPolicyName:
+        type: string
+        required: false
+        description: Backup Policy Name (required for Enable VM Backup)
+        default: "DefaultPolicy"
+      recoveryPointId:
+        type: string
+        required: false
+        description: Recovery Point ID (required for Restore VM)
+        default: ""
+
+jobs:
+  validate-inputs:
+    runs-on:
+    - aks-runners
+    - ${{inputs.environment}}
+    steps:
+    - name: Validate inputs based on request type
+      id: validate
+      run: |
+        REQUEST_TYPE="${{ inputs.requesttype }}"
+        if [[ "$REQUEST_TYPE" == "Enable VM Backup" && -z "${{ inputs.backupPolicyName }}" ]]; then
+          echo "::error::Backup Policy Name is required for Enable VM Backup operation"
+          exit 1
+        fi
+
+        if [[ "$REQUEST_TYPE" == "Restore VM" && -z "${{ inputs.recoveryPointId }}" ]]; then
+          echo "::error::Recovery Point ID is required for Restore VM operation"
+          exit 1
+        fi
+
+        if [[ -z "${{ inputs.recoveryVaultName }}" || -z "${{ inputs.recoveryVaultRG }}" ]]; then
+          echo "::error::Recovery Vault Name and Resource Group are required"
+          exit 1
+        fi
+
+        echo "All validations passed!"
+
+  windows_vm_backup_restore:
+    needs: validate-inputs
+    name: 'VM Backup/Restore Operation'
+    uses: ./.github/workflows/WindowsVMBackupRestoreCreate.yml
+    secrets:
+      AZURE_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
+      AZURE_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
+      AZURE_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+      AZURE_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+    with:
+      requestType: '${{inputs.requesttype}}'
+      environment: '${{inputs.environment}}'
+      location: '${{inputs.location}}'
+      purpose: '${{inputs.purpose}}'
+      purposeRG: '${{inputs.purposeRG}}'
+      recoveryVaultName: '${{inputs.recoveryVaultName}}'
+      recoveryVaultRG: '${{inputs.recoveryVaultRG}}'
+      backupPolicyName: '${{inputs.backupPolicyName}}'
+      recoveryPointId: '${{inputs.recoveryPointId}}'

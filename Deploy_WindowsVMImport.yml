@@ -1,0 +1,136 @@
+name: "- Deploy Windows VM Import"
+run-name: "Windows VM Import - ${{ inputs.environment }} VM: ${{ inputs.vmName }}"
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        required: true
+        description: Environment
+        options:
+        - DEV
+        - UAT
+        - QA
+        - PROD
+      location:
+        type: choice
+        required: true
+        description: Deployment Location
+        options:
+        - eastus2
+        - uksouth
+        - centralus
+        - ukwest
+      vmName:
+        type: string
+        required: true
+        description: Name of the VM to import
+      resourceGroupName:
+        type: string
+        required: true
+        description: Resource group containing the VM
+      vmSize:
+        type: string
+        required: false
+        description: Size of the VM (e.g. Standard_D2s_v3)
+      nicNames:
+        type: string
+        required: false
+        description: "Name of NIC(s). For multiple NICs, use comma-separated values (e.g. vm-nic-01,vm-nic-02)."
+        default: ""
+      osDiskName:
+        type: string
+        required: false
+        description: Name of the OS disk
+        default: ""
+      dataDiskCount:
+        type: string
+        required: false
+        description: Number of data disks (default 0)
+        default: "0"
+      dataDiskNames:
+        type: string
+        required: false
+        description: "Names of data disks as comma-separated values (e.g. disk1,disk2,disk3). Number should match dataDiskCount."
+        default: ""
+      generateOnly:
+        type: boolean
+        required: false
+        description: Generate import commands without executing them
+        default: false
+
+jobs:
+  validate-inputs:
+    runs-on:
+      group: aks-runners
+    environment: ${{ inputs.environment }}
+    outputs:
+      nic_name: ${{ steps.validate.outputs.nic_name }}
+      nic_count: ${{ steps.validate.outputs.nic_count }}
+    steps:
+    - name: Validate inputs
+      id: validate
+      run: |
+        if [[ -z "${{ inputs.vmName }}" ]]; then
+          echo "::error::VM Name is required"
+          exit 1
+        fi
+
+        if [[ -z "${{ inputs.resourceGroupName }}" ]]; then
+          echo "::error::Resource Group Name is required"
+          exit 1
+        fi
+
+        if [[ "${{ inputs.dataDiskCount }}" -lt 0 ]]; then
+          echo "::error::Data Disk Count must be 0 or greater"
+          exit 1
+        fi
+
+        # Process and validate NIC names
+        if [[ ! -z "${{ inputs.nicNames }}" ]]; then
+          # Pass the NIC name directly without JSON conversion
+          echo "nic_name=${{ inputs.nicNames }}" >> $GITHUB_OUTPUT
+          echo "nic_count=1" >> $GITHUB_OUTPUT
+          echo "Using NIC name: ${{ inputs.nicNames }}"
+        else
+          # Default to single NIC with auto-naming
+          echo "nic_count=1" >> $GITHUB_OUTPUT
+          echo "Using default naming for the NIC"
+        fi
+
+        # Process and validate data disk names
+        if [ "${{ inputs.dataDiskCount }}" -eq "0" ]; then
+          # No data disks to process
+          echo "No data disks will be imported"
+        elif [ ! -z "${{ inputs.dataDiskNames }}" ]; then
+          # Count how many disks in the comma-separated list
+          disk_count=$(echo "${{ inputs.dataDiskNames }}" | tr ',' '\n' | wc -l)
+          
+          if [[ $disk_count -ne ${{ inputs.dataDiskCount }} ]]; then
+            echo "::warning::Number of data disk names ($disk_count) does not match data disk count (${{ inputs.dataDiskCount }}). Default naming may be used."
+          fi
+        fi
+
+        echo "All validations passed!"
+
+  windows_vm_import:
+    needs: validate-inputs
+    name: "VM Import Operation"
+    uses: ./.github/workflows/WindowsVMImport.yml
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    with:
+      environment: ${{ inputs.environment }}
+      location: ${{ inputs.location }}
+      vmName: ${{ inputs.vmName }}
+      resourceGroupName: ${{ inputs.resourceGroupName }}
+      vmSize: ${{ inputs.vmSize }}
+      nicCount: ${{ needs.validate-inputs.outputs.nic_count }}
+      nicNames: ${{ needs.validate-inputs.outputs.nic_name || inputs.nicNames }}
+      osDiskName: ${{ inputs.osDiskName }}
+      dataDiskCount: ${{ inputs.dataDiskCount }}
+      dataDiskNames: ${{ inputs.dataDiskNames }}
+      generateOnly: ${{ inputs.generateOnly }}
