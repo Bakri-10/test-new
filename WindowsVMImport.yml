@@ -188,7 +188,7 @@ jobs:
       run: |
         echo "Terraform installation verification:"
         which terraform
-        file $(which terraform)
+        ls -la $(which terraform)
         terraform version
         echo "Terraform installed and verified successfully"
 
@@ -237,7 +237,7 @@ jobs:
 
         # Debug Terraform installation
         echo "Terraform path: $(which terraform)"
-        echo "Terraform file type: $(file $(which terraform))"
+        echo "Terraform file details: $(ls -la $(which terraform))"
         terraform version
 
         echo "Generating import commands..."
@@ -327,7 +327,7 @@ jobs:
         # Verify terraform is executable and not corrupted
         echo "Verifying terraform installation:"
         echo "Terraform path: $(which terraform)"
-        echo "Terraform file type: $(file $(which terraform))"
+        echo "Terraform file details: $(ls -la $(which terraform))"
         terraform version
 
         if [ $? -ne 0 ]; then

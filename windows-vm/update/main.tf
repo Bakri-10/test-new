@@ -70,6 +70,10 @@ locals {
   count_vm_backup_now                       = var.request_type == "Backup VM Now" ? 1 : 0
   count_vm_restore                          = var.request_type == "Restore VM" ? 1 : 0
   
+  # Network Watcher Agent operations
+  count_network_watcher_install             = var.request_type == "Install Network Watcher Agent" ? 1 : 0
+  count_network_watcher_remove              = var.request_type == "Remove Network Watcher Agent" ? 1 : 0
+  
   # Disk names include -01 suffix to match the actual Azure disk naming convention
   dd_name                                   = join("-",[local.vm_name, "data_disk", "0-01"])
   feature_vm_stop_start                     = 0 # 0 = not run, 1 - run
@@ -311,8 +315,47 @@ resource "time_sleep" "wait_for_restore" {
   create_duration = "180s" # Wait for restore to initiate
 }
 
+# Network Watcher Agent Operations
+# Install Network Watcher Agent
+resource "azurerm_virtual_machine_extension" "network_watcher_agent" {
+  count                      = local.count_network_watcher_install
+  name                       = "NetworkWatcherAgent"
+  virtual_machine_id         = data.azurerm_virtual_machine.maintaining.id
+  publisher                  = "Microsoft.Azure.NetworkWatcher"
+  type                       = "NetworkWatcherAgentWindows"
+  type_handler_version       = "1.4"
+  auto_upgrade_minor_version = true
+  automatic_upgrade_enabled  = false
+  
+  # Network Watcher Agent doesn't require additional settings
+  settings = jsonencode({})
+  
+  tags = {
+    Environment     = local.naming.environment
+    Purpose         = var.purpose
+    ManagedBy       = "Terraform"
+    NetworkWatcher  = "Enabled"
+  }
+}
+
+# Remove Network Watcher Agent
+resource "azapi_resource_action" "remove_network_watcher_agent" {
+  count       = local.count_network_watcher_remove
+  type        = "Microsoft.Compute/virtualMachines/extensions@2023-09-01"
+  resource_id = "${data.azurerm_virtual_machine.maintaining.id}/extensions/NetworkWatcherAgent"
+  action      = "delete"
+  method      = "DELETE"
+}
+
 # Output a message about disk operations
 output "disk_operation_status" {
   value = local.count_data_disk_ops > 0 ? "Data disk operations requested for disk: ${local.dd_name}" : "No data disk operations requested"
+}
+
+# Output Network Watcher Agent operation status
+output "network_watcher_operation_status" {
+  value = (local.count_network_watcher_install > 0 ? "Network Watcher Agent installation requested" : 
+          (local.count_network_watcher_remove > 0 ? "Network Watcher Agent removal requested" : 
+          "No Network Watcher Agent operations requested"))
 }
 #

@@ -120,9 +120,11 @@ variable "request_type" {
       "Enable VM Backup",
       "Disable VM Backup",
       "Backup VM Now",
-      "Restore VM"
+      "Restore VM",
+      "Install Network Watcher Agent",
+      "Remove Network Watcher Agent"
     ], var.request_type)
-    error_message = "Invalid request type. Must be one of: Create (with New RG), Create (with Existing RG), Update (Data Disk), Update (OS Disk), Update VM SKU, Remove (Destroy VM), Start VM, Stop VM, Restart VM, Enable VM Backup, Disable VM Backup, Backup VM Now, Restore VM"
+    error_message = "Invalid request type. Must be one of: Create (with New RG), Create (with Existing RG), Update (Data Disk), Update (OS Disk), Update VM SKU, Remove (Destroy VM), Start VM, Stop VM, Restart VM, Enable VM Backup, Disable VM Backup, Backup VM Now, Restore VM, Install Network Watcher Agent, Remove Network Watcher Agent"
   }
 }
 variable "location" {
