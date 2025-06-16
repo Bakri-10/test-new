@@ -181,15 +181,25 @@ jobs:
     - name: "Setup Terraform"
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: "latest"
+        terraform_version: "1.5.7"
+        terraform_wrapper: false
+
+    - name: "Verify Terraform Installation"
+      run: |
+        echo "Terraform installation verification:"
+        which terraform
+        file $(which terraform)
+        terraform version
+        echo "Terraform installed and verified successfully"
 
     - name: "Terraform Initialize"
-      uses: hashicorp/terraform-github-actions@master
-      with:
-        tf_actions_version: latest
-        tf_actions_subcommand: "init"
-        tf_actions_working_dir: ${{ env.ROOT_PATH }}
-        tf_actions_comment: true
+      run: |
+        cd ${{ env.ROOT_PATH }}
+        terraform init \
+          -backend-config="resource_group_name=${{ vars.BACKEND_RESOURCE_GROUP }}" \
+          -backend-config="storage_account_name=${{ vars.BACKEND_STORAGE_ACCOUNT }}" \
+          -backend-config="container_name=terraform-state" \
+          -backend-config="key=${{ inputs.environment }}-${{ inputs.vmName }}.tfstate"
       env:
         TF_VAR_location: "${{ inputs.location }}"
         TF_VAR_vm_name: "${{ inputs.vmName }}"
@@ -200,16 +210,12 @@ jobs:
         TF_VAR_os_disk_name: "${{ inputs.osDiskName }}"
         TF_VAR_data_disk_count: "${{ inputs.dataDiskCount }}"
         TF_VAR_data_disk_names: ${{ env.data_disk_names }}
-        TF_CLI_ARGS_init: '-backend-config="resource_group_name=${{ vars.BACKEND_RESOURCE_GROUP }}" -backend-config="storage_account_name=${{ vars.BACKEND_STORAGE_ACCOUNT }}" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.vmName }}.tfstate"'
 
     - name: "Terraform Plan - Generate Import Commands"
       id: terraform_plan
-      uses: hashicorp/terraform-github-actions@master
-      with:
-        tf_actions_version: latest
-        tf_actions_subcommand: "plan"
-        tf_actions_working_dir: ${{ env.ROOT_PATH }}
-        tf_actions_comment: true
+      run: |
+        cd ${{ env.ROOT_PATH }}
+        terraform plan -out=tfplan
       env:
         TF_VAR_location: "${{ inputs.location }}"
         TF_VAR_vm_name: "${{ inputs.vmName }}"
@@ -230,8 +236,9 @@ jobs:
         ls -la
 
         # Debug Terraform installation
-        which terraform || echo "Terraform not found in PATH"
-        terraform version || echo "Cannot determine Terraform version"
+        echo "Terraform path: $(which terraform)"
+        echo "Terraform file type: $(file $(which terraform))"
+        terraform version
 
         echo "Generating import commands..."
 
@@ -311,9 +318,21 @@ jobs:
         export TF_VAR_data_disk_count="${{ inputs.dataDiskCount }}"
         export TF_VAR_data_disk_names="${{ env.data_disk_names }}"
 
-        # Ensure terraform is in PATH
+        # Ensure terraform is in PATH and working
         if ! command -v terraform &> /dev/null; then
           echo "Error: terraform not found. Verify it was installed correctly."
+          exit 1
+        fi
+
+        # Verify terraform is executable and not corrupted
+        echo "Verifying terraform installation:"
+        echo "Terraform path: $(which terraform)"
+        echo "Terraform file type: $(file $(which terraform))"
+        terraform version
+
+        if [ $? -ne 0 ]; then
+          echo "Error: terraform is installed but not working correctly."
+          echo "This might be due to a corrupted installation."
           exit 1
         fi
 
@@ -334,13 +353,10 @@ jobs:
 
     - name: "Generate Terraform State"
       if: ${{ !inputs.generateOnly && success() }}
-      uses: hashicorp/terraform-github-actions@master
-      with:
-        tf_actions_version: latest
-        tf_actions_subcommand: "plan"
-        tf_actions_working_dir: ${{ env.ROOT_PATH }}
-        tf_actions_comment: true
-        tf_actions_cli_options: "-out=tfplan"
+      run: |
+        cd ${{ env.ROOT_PATH }}
+        terraform plan -out=tfplan
+        echo "Terraform state synchronized successfully"
       env:
         TF_VAR_location: "${{ inputs.location }}"
         TF_VAR_vm_name: "${{ inputs.vmName }}"
