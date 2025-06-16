@@ -105,6 +105,8 @@ jobs:
       AZURE_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
       AZURE_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
       AZURE_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
     with:
       name: 'resource-group'
       subscription: 'SNow Input'
@@ -122,6 +124,8 @@ jobs:
       AZURE_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
       AZURE_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
       AZURE_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
     with:
       requestType: '${{inputs.requestType}}'
       environment: '${{inputs.environment}}'
@@ -144,6 +148,8 @@ jobs:
       AZURE_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
       AZURE_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
       AZURE_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
     with:
       requestType: '${{inputs.requestType}}'
       environment: '${{inputs.environment}}'
@@ -166,6 +172,8 @@ jobs:
       AZURE_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
       AZURE_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
       AZURE_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
     with:
       requestType: '${{inputs.requestType}}'
       environment: '${{inputs.environment}}'
@@ -186,6 +194,8 @@ jobs:
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      BACKEND_RESOURCE_GROUP: ${{secrets.BACKEND_RESOURCE_GROUP}}
+      BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
     with:
       requestType: '${{ inputs.requestType }}'
       environment: '${{ inputs.environment }}'
