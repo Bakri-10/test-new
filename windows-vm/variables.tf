@@ -246,6 +246,6 @@ variable "zone" {
 
  }
 
-variable "loadbalancer_id" {
-  type = string
-}
+# variable "loadbalancer_id" {
+#   type = string
+# }

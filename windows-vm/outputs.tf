@@ -12,6 +12,9 @@ output "input_validation" {
     value = [for inst in local.validation_map : inst.state]
  }
  output "nic_ids" {
-  value = [for nic in azurerm_network_interface.nic : nic.id]
+  value = concat(
+    [for nic in azurerm_network_interface.nic1 : nic.id],
+    [for nic in azurerm_network_interface.nic2 : nic.id]
+  )
   description = "List of NIC IDs for the deployed VMs."
 }

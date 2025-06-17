@@ -729,10 +729,10 @@ resource "azurerm_windows_virtual_machine" "main" {
    }
  }
 
- resource "azurerm_lb_backend_address_pool_association" "VM_to_LB" {
-  loadbalancer_backend_address_pool_id = var.loadbalancer_id
-  virtual_network_id = azure_network_interface.[ (each.value).nic_id ]              = 
-}
+# resource "azurerm_lb_backend_address_pool_association" "VM_to_LB" {
+#   loadbalancer_backend_address_pool_id = var.loadbalancer_id
+#   virtual_network_id = azurerm_network_interface.nic1[each.key].id
+# }
 resource "random_id" "for_password" {
   keepers = {
     time = "${timestamp()}"

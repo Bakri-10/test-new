@@ -95,28 +95,28 @@ jobs:
         echo "::set-output name=subnetNameWVM::$(echo '${{ inputs.subnetInfo }}' | jq -r '.subnetNameWVM')"
         echo "::set-output name=subnetNameWVM2::$(echo '${{ inputs.subnetInfo }}' | jq -r '.subnetNameWVM2')"
 
-  resource_group:
-    if: (github.event.inputs.requestType == 'Create (with New RG)')
-    needs: parse_subnet_info
-    name: 'Resource Group ${{inputs.purposeRG}}'
-    uses: ./.github/workflows/CreateResourceGroup.yml
-    secrets:
-      AZURE_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
-      AZURE_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
-      AZURE_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
-      AZURE_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
-    with:
-      name: 'resource-group'
-      subscription: 'SNow Input'
-      environment: '${{inputs.environment}}'
-      location: '${{inputs.location}}'
-      purpose: '${{inputs.purposeRG}}'
+  # resource_group:
+  #   if: (github.event.inputs.requestType == 'Create (with New RG)')
+  #   needs: parse_subnet_info
+  #   name: 'Resource Group ${{inputs.purposeRG}}'
+  #   uses: ./.github/workflows/CreateResourceGroup.yml
+  #   secrets:
+  #     AZURE_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
+  #     AZURE_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
+  #     AZURE_SUBSCRIPTION_ID: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+  #     AZURE_TENANT_ID: ${{secrets.AZURE_TENANT_ID}}
+  #   with:
+  #     name: 'resource-group'
+  #     subscription: 'SNow Input'
+  #     environment: '${{inputs.environment}}'
+  #     location: '${{inputs.location}}'
+  #     purpose: '${{inputs.purposeRG}}'
 
   windows_vm_new_rg:
     if: (github.event.inputs.requestType == 'Create (with New RG)')
     name: 'Windows VM ${{inputs.purpose}}'
     uses: ./.github/workflows/WindowsVMCreate.yml
-    needs: [ parse_subnet_info, resource_group ]
+    needs: parse_subnet_info
     secrets:
       AZURE_CLIENT_ID: ${{secrets.AZURE_CLIENT_ID}}
       AZURE_CLIENT_SECRET: ${{secrets.AZURE_CLIENT_SECRET}}
